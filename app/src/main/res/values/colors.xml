@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Primary Colors -->
+    <color name="primary">#6200EE</color> <!-- Deep Purple -->
+    <color name="primary_variant">#3700B3</color>
+    <color name="secondary">#03DAC5</color> <!-- Teal -->
+
+    <!-- Neutral Colors -->
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="gray">#9E9E9E</color>
+    <color name="light_gray">#D3D3D3</color>
+
+    <!-- Accent Colors -->
+    <color name="accent">#FF4081</color> <!-- Pink -->
+    <color name="red">#D32F2F</color>
+    <color name="green">#388E3C</color>
+    <color name="blue">#1976D2</color>
+
+    <!-- Background Colors -->
+    <color name="background">#F5F5F5</color>
+    <color name="card_background">#FFFFFF</color>
+
+    <!-- Custom Theme Colors -->
+    <color name="cream"> </color>
+    <color name="dark_cream">#E6D7B9</color>
+    <color name="light_cream">#FAF3E0</color>
+    <color name="nav_background">#B3FFA500</color> <!-- 70% opacity (B3 in hex) -->
+    <color name="colorSelectedBackground">#FFFFFF</color> <!-- light green for example -->
+
+
+</resources>

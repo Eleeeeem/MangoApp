@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="8dp"
+    android:clickable="true"
+    android:focusable="true"
+    android:foreground="?attr/selectableItemBackground"
+    app:cardBackgroundColor="@android:color/white"
+    app:cardCornerRadius="12dp"
+    app:cardElevation="6dp">
+
+<LinearLayout
+android:layout_width="match_parent"
+android:layout_height="wrap_content"
+android:orientation="vertical"
+android:padding="16dp">
+
+<!-- Plant name -->
+<TextView
+    android:id="@+id/tvPlantName"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:text="🌱 Plant: Mango"
+    android:textColor="@android:color/black"
+    android:textSize="18sp"
+    android:textStyle="bold" />
+
+<!-- Disease -->
+<TextView
+    android:id="@+id/tvDiseaseName"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="6dp"
+    android:text="🦠 Disease: Powdery Mildew"
+    android:textColor="@android:color/holo_red_dark"
+    android:textSize="16sp" />
+
+<!-- Accuracy -->
+<TextView
+    android:id="@+id/tvAccuracy"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="4dp"
+    android:text="📊 Accuracy: 95%"
+    android:textColor="@android:color/black"
+    android:textSize="14sp" />
+
+<!-- Treatment -->
+<TextView
+    android:id="@+id/tvTreatment"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="4dp"
+    android:text="💊 Treatment: Apply fungicide"
+    android:textColor="@android:color/black"
+    android:textSize="14sp" />
+
+<!-- Date -->
+<TextView
+    android:id="@+id/tvDate"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="6dp"
+    android:text="🕒 16/09/2025 15:30"
+    android:textColor="@android:color/darker_gray"
+    android:textSize="13sp" />
+
+</LinearLayout>
+    </androidx.cardview.widget.CardView>

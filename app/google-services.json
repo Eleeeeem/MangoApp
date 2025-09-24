@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "346088705164",
+    "project_id": "mangoca-84997",
+    "storage_bucket": "mangoca-84997.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:346088705164:android:f685624a05e97fa0fb7fa9",
+        "android_client_info": {
+          "package_name": "com.example.mangocam"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB7sIwzgepuj8GN16mqp23XqgMtNH4ovP0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
