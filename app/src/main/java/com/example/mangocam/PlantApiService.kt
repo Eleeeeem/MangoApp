@@ -5,7 +5,7 @@ import retrofit2.http.Body
 import retrofit2.http.POST
 
 interface PlantApiService {
-    @POST("identification")
+    @POST("identification?details=common_names,url,description,taxonomy,rank,gbif_id,inaturalist_id,image,synonyms,edible_parts,watering,best_light_condition,best_soil_type,common_uses,cultural_significance,toxicity,best_watering&language=en")
     fun identifyPlant(
         @Body request: PlantRequest
     ): Call<PlantResponse>

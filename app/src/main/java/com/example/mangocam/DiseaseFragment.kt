@@ -153,7 +153,7 @@ class DiseaseFragment : Fragment() {
         val request = PlantRequest(
             images = listOf(imageBase64),
             health = "auto",
-            classification_level = "species",
+            classification_level = "all",
             similar_images = true,
             symptoms = true
         )
@@ -173,9 +173,9 @@ class DiseaseFragment : Fragment() {
                     return
                 }
 
-                val suggestions = result?.suggestions.orEmpty()
-                val topSuggestion = suggestions.firstOrNull()
-                val rawPlantName = topSuggestion?.plant_name ?: "Unknown Plant"
+                val suggestions = result?.classification?.suggestions
+                val topSuggestion = suggestions?.firstOrNull()
+                val rawPlantName = topSuggestion?.name ?: "Unknown Plant"
                 val formattedPlantName =
                     if (rawPlantName.lowercase().contains("mangifera")) "Mangifera indica" else rawPlantName
 
