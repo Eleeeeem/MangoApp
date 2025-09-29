@@ -3,6 +3,9 @@ package com.example.mangocam
 
 
 import android.Manifest
+import android.app.Activity
+import android.app.Activity.RESULT_OK
+import android.content.Context
 
 import android.content.Intent
 
@@ -11,12 +14,15 @@ import android.content.pm.PackageManager
 import android.os.Build
 
 import android.os.Bundle
+import android.text.InputType
 
 import android.view.*
+import android.widget.EditText
 
 import android.widget.TextView
-
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 
 import androidx.core.app.ActivityCompat
 
@@ -27,6 +33,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 
 import androidx.recyclerview.widget.GridLayoutManager
 
@@ -34,30 +41,33 @@ import androidx.recyclerview.widget.RecyclerView
 
 import com.example.mangocam.model.Tree
 
-import com.example.mangocam.ui.logs.TreeAdapter
-
 import com.google.firebase.auth.FirebaseAuth
 
 import com.prolificinteractive.materialcalendarview.*
 
 import java.util.*
-
+import com.example.mangocam.adapter.FarmAdapter
+import com.example.mangocam.model.Farm
+import com.example.mangocam.utils.Constant
+import com.example.mangoo.DiseaseHistory
+import com.google.android.material.button.MaterialButton
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import java.text.SimpleDateFormat
 
 
 class LogsFragment : Fragment() {
 
 
     private lateinit var calendarView: MaterialCalendarView
-
     private lateinit var tvNoLogs: TextView
-
     private lateinit var tvHarvestDate: TextView
-
     private lateinit var tvNextSprayDate: TextView
-
     private lateinit var recyclerView: RecyclerView
-
-    private lateinit var adapter: TreeAdapter
+    private lateinit var adapter: FarmAdapter
+    private lateinit var addTreeButton: MaterialButton
 
     private var lastSelectedDate: CalendarDay? = null
 
@@ -83,15 +93,11 @@ class LogsFragment : Fragment() {
 // Bind views
 
         calendarView = view.findViewById(R.id.calendarView)
-
         tvNoLogs = view.findViewById(R.id.tvNoLogs)
-
         tvHarvestDate = view.findViewById(R.id.tvHarvestDate)
-
         tvNextSprayDate = view.findViewById(R.id.tvNextSprayDate)
-
         recyclerView = view.findViewById(R.id.recyclerViewTrees)
-
+        addTreeButton = view.findViewById(R.id.addTreeButton)
 
 // Setup calendar
 
@@ -103,47 +109,46 @@ class LogsFragment : Fragment() {
 
         calendarView.setOnDateChangedListener { _, date, _ ->
 
-            val selectedTrees = adapter.getSelectedTrees()
-
-            if (selectedTrees.isNotEmpty()) {
-
-                val dateString = "${date.year}-${date.month + 1}-${date.day}"
-
-
-
-                selectedTrees.forEach { tree ->
-
-                    val history = sprayHistory.getOrPut(tree.id) { mutableListOf() }
-
-                    history.add(dateString)
-
-                }
-
-
-
-                Toast.makeText(
-
-                    requireContext(),
-
-                    "Sprayed ${selectedTrees.size} tree(s) on $dateString",
-
-                    Toast.LENGTH_SHORT
-
-                ).show()
-
-
-
-                adapter.clearSelection()
-
-            } else {
-
-                Toast.makeText(
-                    requireContext(),
-                    "Select at least one tree first",
-                    Toast.LENGTH_SHORT
-                ).show()
-
-            }
+//            val selectedTrees = adapter.getSelectedTrees()
+//
+//            if (selectedTrees.isNotEmpty()) {
+//
+//                val dateString = "${date.year}-${date.month + 1}-${date.day}"
+//
+//
+//
+//                selectedTrees.forEach { tree ->
+//
+//                    val history = sprayHistory.getOrPut(tree.id) { mutableListOf() }
+//
+//                    history.add(dateString)
+//
+//                }
+//
+//
+//                Toast.makeText(
+//
+//                    requireContext(),
+//
+//                    "Sprayed ${selectedTrees.size} tree(s) on $dateString",
+//
+//                    Toast.LENGTH_SHORT
+//
+//                ).show()
+//
+//
+//
+//                adapter.clearSelection()
+//
+//            } else {
+//
+//                Toast.makeText(
+//                    requireContext(),
+//                    "Select at least one tree first",
+//                    Toast.LENGTH_SHORT
+//                ).show()
+//
+//            }
 
         }
 
@@ -176,60 +181,46 @@ class LogsFragment : Fragment() {
 
         }
 
+        addTreeButton.setOnClickListener {
+            addFarm()
+        }
 
-// Setup RecyclerView
-
-        setupRecyclerView()
-
-
-
+        setupFarms()
         return view
+    }
 
+    private val activityLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            refreshList()
+        }
     }
 
 
-    private fun setupRecyclerView() {
+    private fun refreshList() {
+        setupFarms()
+    }
 
-        recyclerView.layoutManager = GridLayoutManager(requireContext(), 2)
+    private fun setupFarms() {
+        val sharedPref = requireContext().getSharedPreferences(Constant.SHARED_PREF_FARM, Context.MODE_PRIVATE)
+        val gson = Gson()
 
+        val type = object : TypeToken<MutableList<Farm>>() {}.type
+        val farmList: MutableList<Farm> =
+            gson.fromJson(sharedPref.getString(Constant.SHARED_PREF_FARM, null), type) ?: mutableListOf()
 
-        val trees = listOf(
-
-            Tree("Tree 101", "2020/03/15", "Healthy", R.drawable.ic_healthy),
-
-            Tree("Tree 102", "2021/05/20", "Flowering", R.drawable.ic_flower),
-
-            Tree("Tree 103", "2019/11/02", "Harvest Ready", R.drawable.ic_harvest),
-
-            Tree("Tree 104", "2022/01/10", "Diseased", R.drawable.ic_warning)
-
-        )
-
-
-
-        adapter = TreeAdapter(
-
-            trees,
-
-            onClick = { tree ->
-
-                Toast.makeText(requireContext(), "Clicked: ${tree.id}", Toast.LENGTH_SHORT).show()
-
-            },
-
-            onLongClick = { tree ->
-
-                Toast.makeText(requireContext(), "Long clicked: ${tree.id}", Toast.LENGTH_SHORT)
-                    .show()
-
+        recyclerView.layoutManager = GridLayoutManager(requireContext(), 1)
+        adapter = FarmAdapter(
+            farmList,
+            onClick = { farm ->
+                val intent = Intent (requireActivity(), FarmActivity::class.java)
+                intent.putExtra("farm", farm)
+                activityLauncher.launch(intent)
             }
-
         )
-
-
 
         recyclerView.adapter = adapter
-
     }
 
 
@@ -515,6 +506,60 @@ class LogsFragment : Fragment() {
 
     }
 
+    fun addFarm() {
+        lifecycleScope.launch {
+            val name =  requireContext().showAddFarmDialog()
+            if (name != null) {
+
+                val sharedPref = requireContext().getSharedPreferences(Constant.SHARED_PREF_FARM, Context.MODE_PRIVATE)
+                val gson = Gson()
+
+                val type = object : TypeToken<MutableList<Farm>>() {}.type
+                val farmList: MutableList<Farm> =
+                    gson.fromJson(sharedPref.getString(Constant.SHARED_PREF_FARM, null), type) ?: mutableListOf()
+
+                val currentDate = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(
+                    Date()
+                )
+
+                val newFarm = Farm(
+                    name = name,
+                    id = UUID.randomUUID().toString(),
+                    sprayDate = null,
+                    trees = mutableListOf())
+
+                farmList.add(newFarm)
+
+                sharedPref.edit().putString(Constant.SHARED_PREF_FARM, gson.toJson(farmList)).apply()
+                setupFarms()
+            }
+        }
+    }
+
+    suspend fun Context.showAddFarmDialog(): String? = suspendCancellableCoroutine { cont ->
+        val editText = EditText(this).apply {
+            hint = "Enter Farm name"
+            inputType = InputType.TYPE_CLASS_TEXT
+            setPadding(50, 40, 50, 40)
+        }
+
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("Enter Farm Name")
+            .setView(editText)
+            .setPositiveButton("Save") { _, _ ->
+                val name = editText.text.toString().trim()
+                cont.resume(name, onCancellation = null)
+            }
+            .setNegativeButton("Cancel") { _, _ ->
+                cont.resume(null, onCancellation = null)
+            }
+            .setOnCancelListener {
+                cont.resume(null, onCancellation = null)
+            }
+            .create()
+
+        dialog.show()
+    }
 
     private fun logoutUser() {
 

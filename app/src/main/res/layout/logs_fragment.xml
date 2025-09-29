@@ -146,19 +146,37 @@
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
-        <!-- RecyclerView -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical|end"
+            android:layout_gravity="end">
+
+            <com.google.android.material.button.MaterialButton
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="@drawable/ic_add"
+                android:id="@+id/addTreeButton"
+                app:backgroundTint="@color/black" />
+
+            <TextView
+                android:textColor="@color/black"
+                android:gravity="end"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Add Farm" />
+        </LinearLayout>
+
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/recyclerViewTrees"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="16dp"
             android:layout_marginTop="8dp"
-            android:layout_marginEnd="16dp"
             android:layout_marginBottom="16dp"
             android:background="#00FFF2F2"
             android:clipToPadding="false"
-            android:nestedScrollingEnabled="false"
-            android:padding="13dp" />
+            android:nestedScrollingEnabled="false" />
 
 
     </LinearLayout>

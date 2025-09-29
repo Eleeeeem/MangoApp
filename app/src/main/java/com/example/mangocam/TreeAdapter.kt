@@ -10,7 +10,7 @@ import com.example.mangocam.R
 import com.example.mangocam.model.Tree
 
 class TreeAdapter(
-    private val trees: List<Tree>,
+    private val trees: MutableList<Tree>,
     private val onClick: (Tree) -> Unit,
     private val onLongClick: (Tree) -> Unit
 ) : RecyclerView.Adapter<TreeAdapter.TreeViewHolder>() {
@@ -19,12 +19,9 @@ class TreeAdapter(
 
     inner class TreeViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val tvId: TextView = itemView.findViewById(R.id.tvTreeId)
-        private val ivIcon: ImageView = itemView.findViewById(R.id.ivTreeIcon)
 
         fun bind(tree: Tree) {
-            tvId.text = tree.id
-            ivIcon.setImageResource(tree.iconRes)
-
+            tvId.text = tree.name
             itemView.isSelected = selectedTrees.contains(tree)
 
             itemView.setOnClickListener {
@@ -69,5 +66,10 @@ class TreeAdapter(
     fun clearSelection() {
         selectedTrees.clear()
         notifyDataSetChanged()
+    }
+
+    fun addTree(tree: Tree) {
+        trees.add(tree) //
+        notifyItemInserted(trees.size - 1)
     }
 }
