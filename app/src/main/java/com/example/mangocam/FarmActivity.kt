@@ -11,6 +11,7 @@ import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContentProviderCompat.requireContext
@@ -25,6 +26,7 @@ import com.example.mangocam.model.Tree
 import com.example.mangocam.ui.logs.TreeAdapter
 import com.example.mangocam.utils.Constant
 import com.example.mangoo.DiseaseHistory
+import com.example.mangoo.PlantResponse
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.android.material.button.MaterialButton
 import com.google.gson.Gson
@@ -38,11 +40,16 @@ import java.util.UUID
 
 class FarmActivity : AppCompatActivity() {
 
+    val gson = Gson()
+
     private lateinit var rcTrees: RecyclerView
     private lateinit var adapter: TreeAdapter
     private lateinit var titleTv : TextView
     private lateinit var removeFarmButton : MaterialButton
+    private lateinit var selectedTree : Tree
+
     var farm : Farm? = null
+    var trees: MutableList<Tree> = mutableListOf()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -65,10 +72,35 @@ class FarmActivity : AppCompatActivity() {
         }
     }
 
+    private val detailResultLauncher = this.registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val data = result.data
+            val plantDetail = data?.getSerializableExtra("plantDetail") as? PlantResponse
+
+            selectedTree.data = gson.toJson(plantDetail)
+
+            val sharedPref = this@FarmActivity.getSharedPreferences(Constant.SHARED_PREF_FARM, Context.MODE_PRIVATE)
+            val type = object : TypeToken<MutableList<Farm>>() {}.type
+            val farmList: MutableList<Farm> =
+                gson.fromJson(sharedPref.getString(Constant.SHARED_PREF_FARM, null), type) ?: mutableListOf()
+
+            val farm = farmList.find { it.id == farm?.id }
+            val tree = farm?.trees?.find { it.id == selectedTree.id}
+            tree?.data = gson.toJson(plantDetail)
+
+            sharedPref.edit().putString(Constant.SHARED_PREF_FARM, gson.toJson(farmList)).apply()
+            trees = farm?.trees?.toMutableList() ?: mutableListOf()
+            setUpTrees()
+
+        }
+    }
+
     private fun getIntentData() {
         //kung deprecated oks lang yan haha
         farm = intent.getSerializableExtra("farm") as? Farm
-
+        trees = farm?.trees?.toMutableList() ?: mutableListOf()
         if (farm != null) {
             // Use the data
             Log.d("FarmActivity", "Name: ${farm?.name}")
@@ -78,11 +110,16 @@ class FarmActivity : AppCompatActivity() {
     private fun setUpTrees() {
         rcTrees.layoutManager = GridLayoutManager(this, 2)
         adapter = TreeAdapter(
-            farm?.trees?.toMutableList() ?: mutableListOf(),
+            trees,
             onClick = { tree ->
-                val intent = Intent (this, PlantScanActivity::class.java)
-                intent.putExtra("farm", farm)
-                startActivity(intent)
+
+                selectedTree = tree
+//                val intent = Intent (this, PlantScanActivity::class.java)
+//                intent.putExtra("tree", farm)
+
+                val intent = Intent(this, PlantScanActivity::class.java)
+                detailResultLauncher.launch(intent)
+
             },
             onLongClick = { tree ->
 
@@ -99,7 +136,6 @@ class FarmActivity : AppCompatActivity() {
             if (name != null) {
 
                 val sharedPref = this@FarmActivity.getSharedPreferences(Constant.SHARED_PREF_FARM, Context.MODE_PRIVATE)
-                val gson = Gson()
 
                 val type = object : TypeToken<MutableList<Farm>>() {}.type
                 val farmList: MutableList<Farm> =
@@ -116,6 +152,7 @@ class FarmActivity : AppCompatActivity() {
                     plantedDate = currentDate,
                     status = "",
                     iconRes = 0,
+                    data = null,
                     history = mutableListOf())
 
                 val updatedFarm = farm?.copy(trees = (farm.trees + newTree).toMutableList())
@@ -129,11 +166,13 @@ class FarmActivity : AppCompatActivity() {
 
                 sharedPref.edit().putString(Constant.SHARED_PREF_FARM, gson.toJson(farmList)).apply()
                 adapter.addTree(newTree)
+                trees = updatedFarm?.trees?.toMutableList() ?: mutableListOf()
+
+                setUpTrees()
             } else {
                 Toast.makeText(this@FarmActivity, "Cancelled", Toast.LENGTH_SHORT).show()
             }
         }
-
     }
 
     suspend fun Context.showAddTreeDialog(): String? = suspendCancellableCoroutine { cont ->

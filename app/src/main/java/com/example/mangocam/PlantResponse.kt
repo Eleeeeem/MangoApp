@@ -1,24 +1,26 @@
 package com.example.mangoo
 
+import java.io.Serializable
+
 data class PlantResponse(
     val result: IdentificationResult?,
     val health_assessment: HealthAssessment?
-)
+) : Serializable
 
 data class IdentificationResult(
     val classification: Classification,
     val disease: DiseaseResult?,
     val is_plant: IsPlant?
-)
+): Serializable
 
 data class Classification(
     val suggestions: List<PlantSuggestion>
-)
+): Serializable
 
 data class IsPlant(
     val probability: Double?,
     val binary: Boolean?
-)
+): Serializable
 
 data class PlantSuggestion(
     val id: String,
@@ -26,7 +28,7 @@ data class PlantSuggestion(
     val probability: Double,
     val similar_images: List<SimilarImage>,
     val details: PlantDetails
-)
+): Serializable
 
 data class SimilarImage(
     val id: String,
@@ -36,15 +38,15 @@ data class SimilarImage(
     val citation: String,
     val similarity: Double,
     val url_small: String
-)
+): Serializable
 
 data class DiseaseResult(
     val suggestions: List<DiseaseSuggestion>?
-)
+): Serializable
 
 data class HealthAssessment(
     val diseases: List<DiseaseSuggestion>?
-)
+): Serializable
 
 data class DiseaseSuggestion(
     val name: String?,
@@ -55,13 +57,13 @@ data class DiseaseSuggestion(
     val url: String?,
     val common_names: List<String>?,
     val similar_images: List<SimilarImage>?
-)
+): Serializable
 
 data class Treatment(
     val biological: String?,
     val chemical: String?,
     val prevention: String?
-)
+): Serializable
 
 data class PlantDetails(
     val common_names: List<String>?,
@@ -83,7 +85,7 @@ data class PlantDetails(
     val best_watering: String?,
     val language: String,
     val entity_id: String
-)
+): Serializable
 
 data class Taxonomy(
     val `class`: String,
@@ -92,23 +94,23 @@ data class Taxonomy(
     val family: String,
     val phylum: String,
     val kingdom: String
-)
+): Serializable
 
 data class Description(
     val value: String,
     val citation: String,
     val license_name: String,
     val license_url: String
-)
+): Serializable
 
 data class PlantImage(
     val value: String,
     val citation: String,
     val license_name: String,
     val license_url: String
-)
+): Serializable
 
 data class Watering(
     val max: Int,
     val min: Int
-)
+): Serializable

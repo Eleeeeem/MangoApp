@@ -3,7 +3,7 @@ package com.example.mangocam.model
 import java.io.Serializable
 
 data class Farm(
-    val trees: List<Tree>,
+    var trees: List<Tree>,
     val sprayDate : String?,
     val name : String,
     val id : String
@@ -15,7 +15,8 @@ data class Tree(
     val plantedDate: String = "",
     val status: String = "",
     val iconRes: Int = 0,
-    val history: MutableList<TreeHistory> = mutableListOf()
+    val history: MutableList<TreeHistory> = mutableListOf(),
+    var data : String?
 ): Serializable
 
 data class TreeHistory(

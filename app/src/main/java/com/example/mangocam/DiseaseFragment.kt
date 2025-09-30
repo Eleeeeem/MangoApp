@@ -15,6 +15,7 @@ import android.widget.*
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.FileProvider
 import androidx.fragment.app.Fragment
+import com.example.mangocam.utils.PlantDescriptionCreator
 import com.example.mangoo.*
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -27,6 +28,8 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 class DiseaseFragment : Fragment() {
+
+    private var listener: OnDiseaseDataListener? = null
 
     private lateinit var imageView: ImageView
     private lateinit var textViewResult: TextView
@@ -53,6 +56,18 @@ class DiseaseFragment : Fragment() {
 
         captureButton.setOnClickListener { openCamera() }
         galleryButton.setOnClickListener { openGallery() }
+    }
+
+    override fun onAttach(context: Context) {
+        super.onAttach(context)
+        if (context is OnDiseaseDataListener) {
+            listener = context
+        }
+    }
+
+    override fun onDetach() {
+        super.onDetach()
+        listener = null
     }
 
     // --- Camera & Gallery ---
@@ -173,6 +188,8 @@ class DiseaseFragment : Fragment() {
                     return
                 }
 
+                listener?.onDataReceived(response.body())
+
                 val suggestions = result?.classification?.suggestions
                 val topSuggestion = suggestions?.firstOrNull()
                 val rawPlantName = topSuggestion?.name ?: "Unknown Plant"
@@ -197,64 +214,33 @@ class DiseaseFragment : Fragment() {
 
     // --- Results ---
     private fun showDiseaseDetails(diseases: List<DiseaseSuggestion>, plantName: String) {
-        val topDisease = diseases.maxByOrNull { it.probability ?: 0.0 }
-        val genericName = topDisease?.name ?: "Unknown"
-        val specificName =
-            getSpecificDiseaseName(genericName, topDisease?.description, topDisease?.name)
-        val name = specificName ?: genericName
-        val accuracy = topDisease?.probability.toPercentageString()
-        val treatmentText = treatmentMap[genericName]
-            ?: "• No specific treatment found. Consider general plant care."
+        val history = PlantDescriptionCreator.showDiseaseDetails(diseases,plantName)
 
         val resultText = """
-        🌱 Plant: $plantName
-        🦠 Disease: $name
-        📊 Accuracy: $accuracy
-        $treatmentText
-    """.trimIndent()
+            🌱 Plant: $plantName
+            🦠 Disease: $history.name
+            📊 Accuracy: $history.accuracy
+            $history.treatmentText
+            """.trimIndent()
 
         activity?.runOnUiThread {
             textViewResult.setTextColor(Color.RED)
             textViewResult.text = resultText
         }
 
-        val history = DiseaseHistory(
-            plantName = plantName,
-            diseaseName = name,
-            accuracy = accuracy,
-            treatment = treatmentText,
-            date = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date())
-        )
         saveToHistory(history)
-    }
-
-    private fun getSpecificDiseaseName(category: String?, description: String?, fallbackName: String?): String? {
-        val keywordMap = specificDiseaseMap[category ?: return null] ?: return null
-        val combinedText = listOfNotNull(description, fallbackName).joinToString(" ")
-
-        for ((keyword, specificName) in keywordMap) {
-            if (combinedText.contains(keyword, ignoreCase = true)) {
-                return specificName
-            }
-        }
-        return null
     }
 
     private fun showHealthyMessage(plantName: String) {
         val resultText = "✅ $plantName looks healthy!"
+
         activity?.runOnUiThread {
             textViewResult.setTextColor(Color.parseColor("#388E3C"))
             textViewResult.text = resultText
         }
 
-        val history = DiseaseHistory(
-            plantName = plantName,
-            diseaseName = "Healthy",
-            accuracy = "100%",
-            treatment = "No treatment needed",
-            date = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date())
-        )
-        saveToHistory(history)
+        val diseaseHistory = PlantDescriptionCreator.showHealthyMessage(plantName);
+        saveToHistory(diseaseHistory)
     }
 
     private fun showLoading(message: String) {
@@ -295,41 +281,5 @@ class DiseaseFragment : Fragment() {
         prefs.edit().putString("history", gson.toJson(historyList)).apply()
 
         Log.d("DiseaseFragment", "History saved: ${gson.toJson(historyList)}")
-    }
-
-    // --- Maps ---
-    private val treatmentMap = mapOf(
-        "Fungi" to "🍄 Treatment:\n• Apply fungicide.\n• Improve air circulation.\n• Avoid overhead watering.",
-        "Bacteria" to "🦠 Treatment:\n• Apply copper-based bactericide.\n• Remove and destroy infected leaves.\n• Avoid overhead watering.",
-        "Animalia" to "🐛 Treatment:\n• Use insecticidal soap.\n• Remove affected parts.",
-        "Insecta" to "🦗 Treatment:\n• Neem oil spray.\n• Remove infested parts.",
-        "mechanical damage" to "🪓 Treatment:\n• Prune damaged areas.\n• Avoid rough handling.",
-        "senescence" to "🍂 Treatment:\n• No treatment needed – natural aging.",
-        "nutrient deficiency" to "🌿 Treatment:\n• Apply fertilizer.\n• Check pH and water regularly.",
-        "light excess" to "🔆 Treatment:\n• Provide partial shade.",
-        "water excess" to "💧 Treatment:\n• Improve drainage.\n• Avoid overwatering.",
-        "uneven watering" to "🚿 Treatment:\n• Water evenly.\n• Mulch to retain moisture."
-    )
-
-    private val specificDiseaseMap = mapOf(
-        "Fungi" to mapOf(
-            "powdery" to "Powdery Mildew",
-            "downy" to "Downy Mildew",
-            "blight" to "Leaf Blight",
-            "rust" to "Rust Fungus",
-            "spot" to "Leaf Spot",
-            "mildew" to "Mildew Infection"
-        ),
-        "Insecta" to mapOf(
-            "aphid" to "Aphid Infestation",
-            "mite" to "Spider Mites",
-            "thrip" to "Thrips Damage",
-            "scale" to "Scale Insects",
-            "mealybug" to "Mealybug Infestation"
-        )
-    )
-
-    private fun Double?.toPercentageString(): String {
-        return String.format(Locale.getDefault(), "%.2f%%", (this ?: 0.0) * 100)
     }
 }

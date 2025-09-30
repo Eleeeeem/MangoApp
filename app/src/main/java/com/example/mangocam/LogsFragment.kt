@@ -60,7 +60,6 @@ import java.text.SimpleDateFormat
 
 class LogsFragment : Fragment() {
 
-
     private lateinit var calendarView: MaterialCalendarView
     private lateinit var tvNoLogs: TextView
     private lateinit var tvHarvestDate: TextView
