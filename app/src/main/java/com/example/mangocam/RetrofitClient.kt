@@ -19,7 +19,7 @@ object RetrofitClient {
         .addInterceptor { chain ->
             val request = chain.request().newBuilder()
                 .header("Content-Type", "application/json")
-                .header("Api-Key", "VlE5XmX6lcBAzbCsE1so5eU94Jy0SGKzKIOp9gTsXWnK2Amw8t") // API Key for Plant ID
+                .header("Api-Key", "x6svx1B1jkvMl9yDs36dX8IwYqkOuMteSEgHoCOnSQJup7Xyct") // API Key for Plant ID
                 .build()
             chain.proceed(request)
         }

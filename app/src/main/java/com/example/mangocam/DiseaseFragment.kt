@@ -38,6 +38,8 @@ class DiseaseFragment : Fragment() {
     private lateinit var progressBar: ProgressBar
     private lateinit var photoUri: Uri
 
+    val mangoScientificNames = listOf( "Mangifera indica L.", "Mangifera altissima", "Mangifera odorata", "Mangifera caesia", "Mangifera indica 'Carabao'", "Mangifera indica 'Ataulfo'", "Mangifera indica 'Katchamitha'", "Mangifera indica 'Pico'" )
+
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
@@ -188,6 +190,59 @@ class DiseaseFragment : Fragment() {
                     return
                 }
 
+                val suggestions = result?.classification?.suggestions
+                val topSuggestion = suggestions?.firstOrNull()
+                val inputName = topSuggestion?.name
+
+                if(inputName == null)
+                {
+                    showError("Unable to process the image.")
+                }else if(!matchesScientificNameContain(inputName, mangoScientificNames))
+                {
+                    showError("The image does not indicate a distinguishable part of a mango tree.")
+                }else
+                {
+                    getMangoAssessment(imageBase64)
+                }
+            }
+
+            override fun onFailure(call: Call<PlantResponse>, t: Throwable) {
+                handleNetworkError(t)
+            }
+        })
+    }
+
+    fun matchesScientificNameContain(input: String, names: List<String>): Boolean {
+        val inputLower = input.trim().lowercase()
+        return names.any { fullName ->
+            fullName.lowercase().contains(inputLower) || inputLower.contains(fullName.lowercase())
+        }
+    }
+    private fun getMangoAssessment(imageBase64: String)
+    {
+        val request = PlantRequest(
+            images = listOf(imageBase64),
+            health = "auto",
+            classification_level = "all",
+            similar_images = true,
+            symptoms = true
+        )
+
+        RetrofitClient.plantApi.healthAssesment(request).enqueue(object : Callback<PlantResponse> {
+            override fun onResponse(call: Call<PlantResponse>, response: Response<PlantResponse>) {
+                progressBar.visibility = View.GONE
+
+                if (!response.isSuccessful) {
+                    showError("Identification failed: ${response.code()}")
+                    return
+                }
+
+                val result = response.body()?.result
+                if (result?.is_plant?.binary == false) {
+                    showError("This image does not appear to be a plant.")
+                    return
+                }
+
                 listener?.onDataReceived(response.body())
 
                 val suggestions = result?.classification?.suggestions
@@ -215,13 +270,11 @@ class DiseaseFragment : Fragment() {
     // --- Results ---
     private fun showDiseaseDetails(diseases: List<DiseaseSuggestion>, plantName: String) {
         val history = PlantDescriptionCreator.showDiseaseDetails(diseases,plantName)
-
+        val diseaseName = history.diseaseName
         val resultText = """
-            🌱 Plant: $plantName
-            🦠 Disease: $history.name
-            📊 Accuracy: $history.accuracy
-            $history.treatmentText
-            """.trimIndent()
+                        Not Healthy
+                        🦠 Disease: $diseaseName
+                        """.trimIndent()
 
         activity?.runOnUiThread {
             textViewResult.setTextColor(Color.RED)
@@ -247,7 +300,6 @@ class DiseaseFragment : Fragment() {
         progressBar.visibility = View.VISIBLE
         activity?.runOnUiThread {
             textViewResult.text = "⏳ $message"
-            textViewResult.setTextColor(Color.DKGRAY)
         }
     }
 
@@ -255,7 +307,6 @@ class DiseaseFragment : Fragment() {
         progressBar.visibility = View.GONE
         activity?.runOnUiThread {
             textViewResult.text = "❌ $message"
-            textViewResult.setTextColor(Color.GRAY)
         }
     }
 

@@ -9,4 +9,10 @@ interface PlantApiService {
     fun identifyPlant(
         @Body request: PlantRequest
     ): Call<PlantResponse>
+
+
+    @POST("health_assessment?language=en&details=local_name,description,url,treatment,classification,common_names,cause")
+    fun healthAssesment(
+        @Body request: PlantRequest
+    ): Call<PlantResponse>
 }

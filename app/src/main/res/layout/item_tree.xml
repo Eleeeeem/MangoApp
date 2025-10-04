@@ -16,7 +16,6 @@
         android:orientation="horizontal"
         android:padding="5dp">
 
-        <!-- Text Info -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -48,6 +47,37 @@
                 android:text="Status: Healthy"
                 android:textColor="@android:color/holo_green_dark"
                 android:textSize="14sp" />
+
+            <LinearLayout
+                android:orientation="horizontal"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="8dp">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/checkDetail"
+                    android:textColor="@color/white"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="4dp"
+                    android:layout_weight="1"
+                    android:text="Check Details"
+                    android:onClick="RemoveFarm"
+                    android:backgroundTint="@color/green" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/diagnose"
+                    android:textColor="@color/white"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:layout_weight="1"
+                    android:text="Diagnose"
+                    android:onClick="RemoveFarm"
+                    android:backgroundTint="@color/green" />
+            </LinearLayout>
+
+
         </LinearLayout>
 
     </LinearLayout>

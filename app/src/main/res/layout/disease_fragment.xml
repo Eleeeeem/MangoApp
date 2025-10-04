@@ -15,17 +15,15 @@
         <androidx.cardview.widget.CardView
             android:id="@+id/cardView"
             android:layout_width="291dp"
-            android:layout_height="388dp"
+            android:layout_height="300dp"
             android:layout_margin="30dp"
             android:layout_marginEnd="45dp"
             app:cardBackgroundColor="#FFFDE9"
             app:cardCornerRadius="24dp"
             app:cardElevation="12dp"
-            app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent">
-
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -43,27 +41,6 @@
                     android:padding="4dp"
                     android:scaleType="centerCrop"
                     android:src="@drawable/ic_upload" />
-
-                <TextView
-                    android:id="@+id/accuracyText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="20dp"
-                    android:gravity="center"
-                    android:lineSpacingExtra="4dp"
-                    android:text="🦠 Disease: N/A\n📊 Accuracy: 0%"
-                    android:textColor="#5A4F41"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
-
-                <ProgressBar
-                    android:id="@+id/progressBar"
-                    style="@android:style/Widget.DeviceDefault.Light.ProgressBar.Large"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
-                    android:layout_marginTop="24dp"
-                    android:indeterminateTint="#B89DDF"
-                    android:visibility="gone" />
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
@@ -77,6 +54,29 @@
             app:layout_constraintTop_toBottomOf="@id/cardView"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent">
+
+            <TextView
+                android:layout_marginBottom="20dp"
+                android:id="@+id/accuracyText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:gravity="center"
+                android:lineSpacingExtra="4dp"
+                android:text="🦠 Disease: N/A\n📊 Accuracy: 0%"
+                android:textColor="#000000"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <ProgressBar
+                android:id="@+id/progressBar"
+                style="@android:style/Widget.DeviceDefault.Light.ProgressBar.Large"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="20dp"
+                android:indeterminateTint="#B89DDF"
+                android:visibility="gone" />
 
             <Button
                 android:id="@+id/captureBtn"

@@ -11,11 +11,15 @@ import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.mangocam.model.Farm
+import com.example.mangocam.utils.Constant
 import com.example.mangoo.DiseaseHistory
 import com.example.mangoo.HistoryAdapter
 import com.google.firebase.database.*
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 class ProfileFragment : Fragment() {
 
@@ -77,11 +81,24 @@ class ProfileFragment : Fragment() {
     // 🔹 Load cached profile details (instant)
     private fun loadUserProfileFromCache() {
         val sharedPref = requireActivity().getSharedPreferences("UserSession", Context.MODE_PRIVATE)
+        val farmPref = requireActivity().getSharedPreferences(Constant.SHARED_PREF_FARM, Context.MODE_PRIVATE)
+
+
+        val farmJson = farmPref.getString(Constant.SHARED_PREF_FARM, null)
+        val farms: List<Farm> = if (farmJson != null) {
+            val type = object : TypeToken<List<Farm>>() {}.type
+            Gson().fromJson(farmJson, type)
+        } else {
+            emptyList()
+        }
+
+        val totalTreeCount = farms.sumOf { it.trees.size }
+
 
         tvFullname.text = sharedPref.getString("name", "Unknown")
         tvEmail.text = sharedPref.getString("email", "No email")
         tvFarmLocation.text = sharedPref.getString("address", "No address")
-        tvCrops.text = "Mango Trees: ${sharedPref.getString("mangoTrees", "0")}"
+        tvCrops.text = "Mango Trees: ${totalTreeCount}"
         tvJoinedDate.text = sharedPref.getString("joinedDate", "Joined: 2025") // fallback
         tvContact.text = sharedPref.getString("contact", "No contact")
     }
@@ -92,12 +109,26 @@ class ProfileFragment : Fragment() {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val user = snapshot.getValue(HelperClass::class.java)
                 if (user != null) {
-                    // update UI
+
+                    val inputFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                    val outputFormat = SimpleDateFormat("dd- MMM-yyyy", Locale.getDefault())
+
+                    val dateStr = user.dateJoined
+
+                    if(dateStr == null)
+                    {
+                        tvJoinedDate.text = "Joined: Unknown"
+                    }else
+                    {
+                        val parsedDate = inputFormat.parse(dateStr)
+                        val formattedDate = parsedDate?.let { outputFormat.format(it) } ?: "Unknown"
+                        tvJoinedDate.text = "Joined: ${formattedDate}"
+                    }
+
                     tvFullname.text = user.name
                     tvEmail.text = user.email
                     tvFarmLocation.text = user.address
-                    tvCrops.text = "Mango Trees: ${user.mangoTrees}"
-                    tvJoinedDate.text = "Joined: 2025" // TODO: replace with real join date
+
                     tvContact.text = user.contact
 
                     // update cache

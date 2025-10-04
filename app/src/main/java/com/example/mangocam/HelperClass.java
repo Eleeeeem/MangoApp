@@ -1,5 +1,7 @@
 package com.example.mangocam;
 
+import java.time.LocalDateTime;
+
 public class HelperClass {
     private String userId;
     private String name;
@@ -9,6 +11,7 @@ public class HelperClass {
     private int mangoTrees;
     private String birthday; // Add this line
     private String password;
+    private String dateJoined;
 
     // Default constructor (required for Firebase)
     public HelperClass() {}
@@ -23,6 +26,7 @@ public class HelperClass {
         this.mangoTrees = mangoTrees;
         this.birthday = birthday; // Initialize the new field
         this.password = password;
+        this.dateJoined = LocalDateTime.now().toString();
     }
 
     // Getters and Setters
@@ -49,4 +53,7 @@ public class HelperClass {
 
     public String getPassword() { return password; }
     public void setPassword(String password) { this.password = password; }
+
+    public String getDateJoined() { return dateJoined; }
+    public void setDateJoined(String dateJoined) { this.dateJoined = dateJoined; }
 }

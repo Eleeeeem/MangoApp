@@ -108,21 +108,26 @@ class FarmActivity : AppCompatActivity() {
     }
 
     private fun setUpTrees() {
-        rcTrees.layoutManager = GridLayoutManager(this, 2)
+        rcTrees.layoutManager = GridLayoutManager(this, 1)
         adapter = TreeAdapter(
             trees,
-            onClick = { tree ->
+            onCheckDetailClick = { tree ->
 
-                selectedTree = tree
-//                val intent = Intent (this, PlantScanActivity::class.java)
-//                intent.putExtra("tree", farm)
+                if(tree.data == null)
+                {
+                    Toast.makeText(this, "Diagnose first to add history.", Toast.LENGTH_SHORT).show()
+                }else{
+                    val intent = Intent(this, TreeHistoryActivity::class.java)
+                    intent.putExtra("tree" , tree)
+                    detailResultLauncher.launch(intent)
+                }
 
-                val intent = Intent(this, PlantScanActivity::class.java)
-                detailResultLauncher.launch(intent)
 
             },
-            onLongClick = { tree ->
-
+            onDiagnoseClick = { tree ->
+                selectedTree = tree
+                val intent = Intent(this, PlantScanActivity::class.java)
+                detailResultLauncher.launch(intent)
             }
         )
 
@@ -130,74 +135,47 @@ class FarmActivity : AppCompatActivity() {
     }
 
     fun AddTree(view: View) {
+        val sharedPref = this@FarmActivity.getSharedPreferences(Constant.SHARED_PREF_FARM, Context.MODE_PRIVATE)
 
-        lifecycleScope.launch {
-            val name = showAddTreeDialog()
-            if (name != null) {
+        val type = object : TypeToken<MutableList<Farm>>() {}.type
+        val farmList: MutableList<Farm> =
+            gson.fromJson(sharedPref.getString(Constant.SHARED_PREF_FARM, null), type) ?: mutableListOf()
 
-                val sharedPref = this@FarmActivity.getSharedPreferences(Constant.SHARED_PREF_FARM, Context.MODE_PRIVATE)
+        val currentDate = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(
+            Date()
+        )
 
-                val type = object : TypeToken<MutableList<Farm>>() {}.type
-                val farmList: MutableList<Farm> =
-                    gson.fromJson(sharedPref.getString(Constant.SHARED_PREF_FARM, null), type) ?: mutableListOf()
-
-                val currentDate = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(
-                    Date()
-                )
-
-                val farm = farmList.find { it.id == farm?.id }
-                val newTree = Tree(
-                    name = name,
-                    id = name,
-                    plantedDate = currentDate,
-                    status = "",
-                    iconRes = 0,
-                    data = null,
-                    history = mutableListOf())
-
-                val updatedFarm = farm?.copy(trees = (farm.trees + newTree).toMutableList())
-
-                if (updatedFarm != null) {
-                    val index = farmList.indexOfFirst { it.id == updatedFarm.id }
-                    if (index != -1) {
-                        farmList[index] = updatedFarm
-                    }
-                }
-
-                sharedPref.edit().putString(Constant.SHARED_PREF_FARM, gson.toJson(farmList)).apply()
-                adapter.addTree(newTree)
-                trees = updatedFarm?.trees?.toMutableList() ?: mutableListOf()
-
-                setUpTrees()
-            } else {
-                Toast.makeText(this@FarmActivity, "Cancelled", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
-    suspend fun Context.showAddTreeDialog(): String? = suspendCancellableCoroutine { cont ->
-        val editText = EditText(this).apply {
-            hint = "Enter Tree name/id"
-            inputType = InputType.TYPE_CLASS_TEXT
-            setPadding(50, 40, 50, 40)
+        val farm = farmList.find { it.id == farm?.id }
+        val sortedLastTree = farm?.trees?.sortedBy { it.id }?.lastOrNull()
+        val id : Int = if(sortedLastTree == null) {
+            1
+        } else {
+            sortedLastTree.id + 1
         }
 
-        val dialog = AlertDialog.Builder(this)
-            .setTitle("Enter Farm name/id")
-            .setView(editText)
-            .setPositiveButton("Save") { _, _ ->
-                val name = editText.text.toString().trim()
-                cont.resume(name, onCancellation = null)
-            }
-            .setNegativeButton("Cancel") { _, _ ->
-                cont.resume(null, onCancellation = null)
-            }
-            .setOnCancelListener {
-                cont.resume(null, onCancellation = null)
-            }
-            .create()
+        val newTree = Tree(
+            name = "Tree $id",
+            id = id,
+            plantedDate = currentDate,
+            status = "",
+            iconRes = 0,
+            data = null,
+            history = mutableListOf())
 
-        dialog.show()
+        val updatedFarm = farm?.copy(trees = (farm.trees + newTree).toMutableList())
+
+        if (updatedFarm != null) {
+            val index = farmList.indexOfFirst { it.id == updatedFarm.id }
+            if (index != -1) {
+                farmList[index] = updatedFarm
+            }
+        }
+
+        sharedPref.edit().putString(Constant.SHARED_PREF_FARM, gson.toJson(farmList)).apply()
+        adapter.addTree(newTree)
+        trees = updatedFarm?.trees?.toMutableList() ?: mutableListOf()
+
+        setUpTrees()
     }
 
     fun RemoveFarm(view: View) {

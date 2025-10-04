@@ -4,7 +4,8 @@ import java.io.Serializable
 
 data class PlantResponse(
     val result: IdentificationResult?,
-    val health_assessment: HealthAssessment?
+    val health_assessment: HealthAssessment?,
+    var date : String
 ) : Serializable
 
 data class IdentificationResult(
@@ -56,13 +57,26 @@ data class DiseaseSuggestion(
     val cause: String?,
     val url: String?,
     val common_names: List<String>?,
-    val similar_images: List<SimilarImage>?
+    val similar_images: List<SimilarImage>?,
+    val details: Details,
 ): Serializable
 
+data class Details(
+    val local_name: String,
+    val description: String,
+    val url: String?,
+    val treatment: Treatment,
+    val classification: List<String>,
+    val common_names: List<String>?,
+    val cause: Any?,
+    val language: String,
+    val entity_id: String,
+) : Serializable
+
 data class Treatment(
-    val biological: String?,
-    val chemical: String?,
-    val prevention: String?
+    val chemical: List<String>?,
+    val biological: List<String>?,
+    val prevention: List<String>?,
 ): Serializable
 
 data class PlantDetails(

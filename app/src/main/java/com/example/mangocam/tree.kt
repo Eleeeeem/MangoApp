@@ -4,14 +4,14 @@ import java.io.Serializable
 
 data class Farm(
     var trees: List<Tree>,
-    val sprayDate : String?,
+    var sprayDate : String?,
     val name : String,
     val id : String
 )  : Serializable
 
 data class Tree(
     val name : String ="",
-    val id: String = "",
+    val id: Int = 0,
     val plantedDate: String = "",
     val status: String = "",
     val iconRes: Int = 0,

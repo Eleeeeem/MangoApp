@@ -15,6 +15,7 @@ import com.example.mangocam.utils.PlantDescriptionCreator
 import com.example.mangoo.DiseaseHistory
 import com.example.mangoo.DiseaseSuggestion
 import com.example.mangoo.PlantResponse
+import com.google.android.material.button.MaterialButton
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import java.text.SimpleDateFormat
@@ -23,16 +24,17 @@ import java.util.Locale
 
 class TreeAdapter(
     private val trees: MutableList<Tree>,
-    private val onClick: (Tree) -> Unit,
-    private val onLongClick: (Tree) -> Unit
+    private val onDiagnoseClick: (Tree) -> Unit,
+    private val onCheckDetailClick: (Tree) -> Unit
 ) : RecyclerView.Adapter<TreeAdapter.TreeViewHolder>() {
 
-    private val selectedTrees = mutableSetOf<Tree>()
     val gson = Gson()
 
     inner class TreeViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val tvId: TextView = itemView.findViewById(R.id.tvTreeId)
         private val tvStatus: TextView = itemView.findViewById(R.id.tvStatus)
+        private val checkDetail: MaterialButton = itemView.findViewById(R.id.checkDetail)
+        private val diagnose: MaterialButton = itemView.findViewById(R.id.diagnose)
 
         fun bind(tree: Tree) {
 
@@ -70,30 +72,14 @@ class TreeAdapter(
             }
 
             tvId.text = tree.name
-            itemView.isSelected = selectedTrees.contains(tree)
 
-            itemView.setOnClickListener {
-                if (selectedTrees.isNotEmpty()) {
-                    toggleSelection(tree)
-                } else {
-                    onClick(tree)
-                }
+            checkDetail.setOnClickListener {
+               onCheckDetailClick(tree)
             }
 
-            itemView.setOnLongClickListener {
-                toggleSelection(tree)
-                onLongClick(tree)
-                true
+            diagnose.setOnClickListener {
+                onDiagnoseClick(tree)
             }
-        }
-
-        private fun toggleSelection(tree: Tree) {
-            if (selectedTrees.contains(tree)) {
-                selectedTrees.remove(tree)
-            } else {
-                selectedTrees.add(tree)
-            }
-            notifyItemChanged(adapterPosition)
         }
     }
 
@@ -107,14 +93,6 @@ class TreeAdapter(
     }
 
     override fun getItemCount(): Int = trees.size
-
-    // Now returns full Tree objects
-    fun getSelectedTrees(): List<Tree> = selectedTrees.toList()
-
-    fun clearSelection() {
-        selectedTrees.clear()
-        notifyDataSetChanged()
-    }
 
     fun addTree(tree: Tree) {
         trees.add(tree) //

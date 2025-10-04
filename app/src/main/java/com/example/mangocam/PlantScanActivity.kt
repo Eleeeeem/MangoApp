@@ -2,13 +2,17 @@ package com.example.mangocam
 
 import android.app.Activity
 import android.content.Intent
+import android.icu.text.SimpleDateFormat
 import android.os.Bundle
 import android.view.View
+import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.example.mangoo.PlantResponse
+import java.util.Date
+import java.util.Locale
 
 interface OnDiseaseDataListener {
     fun onDataReceived(data: PlantResponse?)
@@ -16,7 +20,7 @@ interface OnDiseaseDataListener {
 
 class PlantScanActivity : AppCompatActivity() , OnDiseaseDataListener {
 
-    lateinit var plantData : PlantResponse
+    var plantData : PlantResponse? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -35,15 +39,22 @@ class PlantScanActivity : AppCompatActivity() , OnDiseaseDataListener {
     }
 
     fun SaveTree(view: View) {
-        val intent = Intent()
-        intent.putExtra("plantDetail", plantData)
-        setResult(Activity.RESULT_OK, intent)
-        finish()
+
+        if(plantData == null)
+        {
+            Toast.makeText(this, "No Data Available.", Toast.LENGTH_SHORT).show()
+        }else{
+            val intent = Intent()
+            intent.putExtra("plantDetail", plantData)
+            setResult(Activity.RESULT_OK, intent)
+            finish()
+        }
     }
 
     override fun onDataReceived(data: PlantResponse?) {
         if (data != null) {
             plantData = data
+            plantData?.date = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date())
         }
     }
 }
