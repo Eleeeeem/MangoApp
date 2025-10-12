@@ -13,6 +13,7 @@
 
         <!-- Calendar -->
         <com.prolificinteractive.materialcalendarview.MaterialCalendarView
+            android:layout_gravity="center"
             android:id="@+id/calendarView"
             android:layout_width="346dp"
             android:layout_height="400dp"
@@ -23,34 +24,53 @@
             app:mcv_dateTextAppearance="@style/CalendarDateText"
             app:mcv_selectionColor="#F7EFCA" />
 
-        <!-- No logs -->
-        <TextView
-            android:id="@+id/tvNoLogs"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:layout_gravity="center_horizontal"
-            android:gravity="center"
-            android:text="No logs available"
-            android:textColor="@color/black"
-            android:textSize="18sp" />
-
         <!-- Card -->
         <androidx.cardview.widget.CardView
             android:id="@+id/cardViewLogs"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="16dp"
-            android:layout_marginEnd="16dp"
-            android:layout_marginTop="16dp"
             android:layout_marginBottom="8dp"
+            android:layout_marginTop="8dp"
             app:cardBackgroundColor="#FFFFF2"
             app:cardCornerRadius="16dp"
             app:cardElevation="8dp">
 
             <LinearLayout
-                android:layout_width="303dp"
-                android:layout_height="144dp"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+                <TextView
+                    android:visibility="gone"
+                    android:id="@+id/noSprayTv"
+                    android:layout_marginTop="16dp"
+                    android:layout_marginLeft="16dp"
+                    android:layout_marginRight="16dp"
+                    android:textColor="@color/black"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="No Details available."
+                    android:gravity="center"/>
+
+                <com.google.android.material.button.MaterialButton
+                    android:visibility="gone"
+                    android:id="@+id/addSprayButton"
+                    android:layout_margin="16dp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="56dp"
+                    android:backgroundTint="#91D573"
+                    android:drawableStart="@drawable/ic_camera"
+                    android:drawablePadding="8dp"
+                    android:gravity="center"
+                    android:text="Add Farm Spray Date"
+                    android:textColor="@color/white"
+                    android:textSize="14sp"
+                    android:layout_gravity="center" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/logView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:padding="16dp">
 
@@ -137,6 +157,28 @@
 
                     <TextView
                         android:id="@+id/tvNextSprayDate"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="--"
+                        android:textColor="@color/black"
+                        android:textSize="16sp" />
+                </LinearLayout>
+                <!-- Next Spray -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Farm Name: "
+                        android:textColor="@color/black"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/farmNameTv"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="--"

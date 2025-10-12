@@ -4,7 +4,6 @@ package com.example.mangocam
 
 import android.Manifest
 import android.app.Activity
-import android.app.Activity.RESULT_OK
 import android.content.Context
 
 import android.content.Intent
@@ -15,13 +14,12 @@ import android.os.Build
 
 import android.os.Bundle
 import android.text.InputType
-import android.util.Log
 
 import android.view.*
 import android.widget.EditText
+import android.widget.LinearLayout
 
 import android.widget.TextView
-import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 
@@ -40,8 +38,6 @@ import androidx.recyclerview.widget.GridLayoutManager
 
 import androidx.recyclerview.widget.RecyclerView
 
-import com.example.mangocam.model.Tree
-
 import com.google.firebase.auth.FirebaseAuth
 
 import com.prolificinteractive.materialcalendarview.*
@@ -50,27 +46,31 @@ import java.util.*
 import com.example.mangocam.adapter.FarmAdapter
 import com.example.mangocam.model.Farm
 import com.example.mangocam.utils.Constant
-import com.example.mangoo.DiseaseHistory
+import com.example.mangocam.utils.SharedPrefUtil
 import com.google.android.material.button.MaterialButton
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.text.SimpleDateFormat
+import java.time.LocalDate
 
 
 class LogsFragment : Fragment() {
 
     private lateinit var calendarView: MaterialCalendarView
-    private lateinit var tvNoLogs: TextView
     private lateinit var tvHarvestDate: TextView
     private lateinit var tvNextSprayDate: TextView
     private lateinit var recyclerView: RecyclerView
     private lateinit var adapter: FarmAdapter
     private lateinit var addTreeButton: MaterialButton
 
-    private var lastSelectedDate: CalendarDay? = null
+    private lateinit var noSprayTv: TextView
+    private lateinit var farmNameTv: TextView
+    private lateinit var addSprayButton: MaterialButton
+    private lateinit var logView : LinearLayout
 
+    private var selectedCalendarDay : CalendarDay? = null
 
 // Example history map: treeId -> list of spray dates
 
@@ -87,96 +87,142 @@ class LogsFragment : Fragment() {
 
         setHasOptionsMenu(true)
 
-        val view = inflater.inflate(R.layout.logs_fragment, container, false)
-
-
 // Bind views
-
+        val view = inflater.inflate(R.layout.logs_fragment, container, false)
         calendarView = view.findViewById(R.id.calendarView)
-        tvNoLogs = view.findViewById(R.id.tvNoLogs)
         tvHarvestDate = view.findViewById(R.id.tvHarvestDate)
         tvNextSprayDate = view.findViewById(R.id.tvNextSprayDate)
         recyclerView = view.findViewById(R.id.recyclerViewTrees)
         addTreeButton = view.findViewById(R.id.addTreeButton)
+        addSprayButton = view.findViewById(R.id.addSprayButton)
+        noSprayTv = view.findViewById(R.id.noSprayTv)
+        logView = view.findViewById(R.id.logView)
+        farmNameTv = view.findViewById(R.id.farmNameTv)
 
-// Setup calendar
-
-        tvNoLogs.text = "Tap a date to mark spray for selected trees"
         calendarView.setOnDateChangedListener { _, date, _ ->
 
-            val sharedPref = requireContext().getSharedPreferences(Constant.SHARED_PREF_FARM, Context.MODE_PRIVATE)
-            val gson = Gson()
 
-            val type = object : TypeToken<MutableList<Farm>>() {}.type
-            val farmList: MutableList<Farm> =
-                gson.fromJson(sharedPref.getString(Constant.SHARED_PREF_FARM, null), type) ?: mutableListOf()
+            updateDetailView(date)
 
-            // FILTER farms first
-            val eligibleFarms = farmList.filter { it.sprayDate == null }
-
-// Use eligibleFarms for names and checkedItems
-            val farmNames: Array<CharSequence> = eligibleFarms.map { it.name }.toTypedArray()
-            val checkedItems = BooleanArray(eligibleFarms.size) { false }
-
-            AlertDialog.Builder(requireContext())
-                .setTitle("Select Farms")
-                .setMultiChoiceItems(farmNames, checkedItems) { _, which, isChecked ->
-                    checkedItems[which] = isChecked
-                }
-                .setPositiveButton("OK") { dialog, _ ->
-                    val selectedFarmNames = eligibleFarms
-                        .filterIndexed { index, _ -> checkedItems[index] }
-                        .map { it.name }
-
-                    val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-                    val calendar = Calendar.getInstance()
-                    calendar.set(date.year, date.month, date.day) // CalendarDay to Calendar
-
-                    val formattedDate = formatter.format(calendar.time)
-
-                    // Update original list (farmList) based on selected names
-                    for (farm in farmList) {
-                        if (farm.name in selectedFarmNames) {
-                            farm.sprayDate = formattedDate
-                        }
-                    }
-
-                    sharedPref.edit().putString(Constant.SHARED_PREF_FARM, gson.toJson(farmList)).apply()
-
-                    calendarView.addDecorator(SprayDecorator(setOf(date)))
-                    setupFarms()
-                    dialog.dismiss()
-                }
-                .setNegativeButton("Cancel") { dialog, _ ->
-                    dialog.dismiss()
-                }
-                .show()
         }
 
         addTreeButton.setOnClickListener {
             addFarm()
         }
 
-        AddCalendarMarks()
+        addSprayButton.setOnClickListener {
+            selectFarmForSpray()
+        }
+
+        addCalendarMarks()
         setupFarms()
         return view
     }
 
-    private fun AddCalendarMarks()
+    private fun updateDetailView(selectedCalendarDate: CalendarDay)
     {
-        val sharedPref = requireContext().getSharedPreferences(Constant.SHARED_PREF_FARM, Context.MODE_PRIVATE)
-        val gson = Gson()
+        selectedCalendarDay = selectedCalendarDate
 
-        val type = object : TypeToken<MutableList<Farm>>() {}.type
-        val farmList: MutableList<Farm> =
-            gson.fromJson(sharedPref.getString(Constant.SHARED_PREF_FARM, null), type) ?: mutableListOf()
+        val sharedPref = requireContext().getSharedPreferences(Constant.SHARED_PREF_FARM, Context.MODE_PRIVATE)
+        val farms = SharedPrefUtil.getFarms(sharedPref)
+
+        val selectedDate = LocalDate.of(
+            selectedCalendarDate.year,
+            selectedCalendarDate.month + 1,
+            selectedCalendarDate.day
+        )
+
+        val matchingFarm = farms.find { farm ->
+            farm.sprayDate?.let { dateString ->
+                try {
+                    val farmDate = LocalDate.parse(dateString) // Assumes format is "yyyy-MM-dd"
+                    farmDate == selectedDate
+                } catch (e: Exception) {
+                    false
+                }
+            } ?: false
+        }
+
+        if(matchingFarm == null)
+        {
+            noSprayTv.visibility = View.VISIBLE
+            addSprayButton.visibility = View.VISIBLE
+            logView.visibility = View.GONE
+
+            addCalendarMarks()
+            return
+        }
+
+        noSprayTv.visibility = View.GONE
+        addSprayButton.visibility = View.GONE
+        logView.visibility = View.VISIBLE
+        highlightSprayDaysOnwards(selectedCalendarDate, matchingFarm)
+    }
+
+    private fun selectFarmForSpray()
+    {
+        val date = selectedCalendarDay
+
+        if(date == null)
+        {
+            return
+        }
+
+        val sharedPref = requireContext().getSharedPreferences(Constant.SHARED_PREF_FARM, Context.MODE_PRIVATE)
+        val farmList = SharedPrefUtil.getFarms(sharedPref)
+
+        // FILTER farms first
+        val eligibleFarms = farmList.filter { it.sprayDate == null }
+
+        val farmNames: Array<CharSequence> = eligibleFarms.map { it.name }.toTypedArray()
+        val checkedItems = BooleanArray(eligibleFarms.size) { false }
+
+        AlertDialog.Builder(requireContext())
+            .setTitle("Select Farms")
+            .setMultiChoiceItems(farmNames, checkedItems) { _, which, isChecked ->
+                checkedItems[which] = isChecked
+            }
+            .setPositiveButton("OK") { dialog, _ ->
+                val selectedFarmNames = eligibleFarms
+                    .filterIndexed { index, _ -> checkedItems[index] }
+                    .map { it.name }
+
+                val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                val calendar = Calendar.getInstance()
+                calendar.set(date.year, date.month, date.day) // CalendarDay to Calendar
+
+                val formattedDate = formatter.format(calendar.time)
+
+                // Update original list (farmList) based on selected names
+                for (farm in farmList) {
+                    if (farm.name in selectedFarmNames) {
+                        farm.sprayDate = formattedDate
+                    }
+                }
+
+                SharedPrefUtil.setFarms(sharedPref,farmList)
+                updateDetailView(date)
+                setupFarms()
+                dialog.dismiss()
+            }
+            .setNegativeButton("Cancel") { dialog, _ ->
+                dialog.dismiss()
+            }
+            .show()
+    }
+
+    private fun addCalendarMarks()
+    {
+        calendarView.removeDecorators()
+
+        val sharedPref = requireContext().getSharedPreferences(Constant.SHARED_PREF_FARM, Context.MODE_PRIVATE)
+        val farmList = SharedPrefUtil.getFarms(sharedPref)
 
         val farmWithSprayDates: List<Farm> = farmList
             .filter { it.sprayDate != null }
 
         calendarView.post {
             calendarView.addDecorator(TodayDecorator())
-
 
             val sprayDates = farmWithSprayDates.mapNotNull { farm ->
                 farm.sprayDate?.let { stringToCalendarDay(it) }
@@ -221,81 +267,50 @@ class LogsFragment : Fragment() {
     }
 
 
-    private fun highlightSprayDaysOnwards(startDate: CalendarDay) {
-
+    private fun highlightSprayDaysOnwards(startDate: CalendarDay, matchingFarm: Farm) {
         val creamDates = mutableListOf<CalendarDay>()
-
         val calendar = Calendar.getInstance().apply {
 
             set(startDate.year, startDate.month, startDate.day)
-
         }
 
-
-// 110 days highlight (harvest)
-
+        // 110 days highlight (harvest)
         repeat(110) {
-
             creamDates.add(CalendarDay.from(calendar))
-
             calendar.add(Calendar.DAY_OF_MONTH, 1)
-
         }
-
 
         val harvestDate = creamDates.last().date
-
         val formattedHarvest = android.text.format.DateFormat.format("MMMM dd, yyyy", harvestDate)
 
-
-// Next spray session (90–96 days)
-
+        // Next spray session (90–96 days)
         val greenDates = mutableListOf<CalendarDay>()
-
         val greenCalendar = Calendar.getInstance().apply {
-
             set(startDate.year, startDate.month, startDate.day)
-
             add(Calendar.DAY_OF_MONTH, 90)
-
         }
 
         repeat(7) {
-
             greenDates.add(CalendarDay.from(greenCalendar))
-
             greenCalendar.add(Calendar.DAY_OF_MONTH, 1)
-
         }
 
         val formattedNextSpray =
-
             android.text.format.DateFormat.format("MMMM dd, yyyy", greenDates.first().date)
 
-
-// Yellow stage (30–60 days, warning period)
-
+        // Yellow stage (30–60 days, warning period)
         val yellowDates = mutableListOf<CalendarDay>()
-
         val yellowCalendar = Calendar.getInstance().apply {
-
             set(startDate.year, startDate.month, startDate.day)
-
             add(Calendar.DAY_OF_MONTH, 30)
-
         }
 
         repeat(30) {
-
             yellowDates.add(CalendarDay.from(yellowCalendar))
-
             yellowCalendar.add(Calendar.DAY_OF_MONTH, 1)
-
         }
 
-
         val orangeDate = creamDates.last() // harvest
-
 
 // Reset decorators and re-apply
 
@@ -315,11 +330,8 @@ class LogsFragment : Fragment() {
 // Update labels
 
         tvHarvestDate.text = formattedHarvest
-
         tvNextSprayDate.text = formattedNextSpray
-
-        tvNoLogs.visibility = View.GONE
-
+        farmNameTv.text = matchingFarm.name
     }
 
 
