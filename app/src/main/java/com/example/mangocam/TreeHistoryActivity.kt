@@ -13,6 +13,7 @@ import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.mangocam.adapter.TreeHistoryAdapter
 import com.example.mangocam.model.Tree
+import com.example.mangoo.DiseaseSuggestion
 import com.example.mangoo.PlantResponse
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -71,8 +72,18 @@ class TreeHistoryActivity : AppCompatActivity() {
 
     private fun setUpdateDiseaseHistory() {
         rcHistory.layoutManager = GridLayoutManager(this, 1)
+
+        val highestProbabilityDiseases: List<DiseaseSuggestion> = treeDetails
+            ?.result
+            ?.disease
+            ?.suggestions
+            ?.let { list ->
+                val maxProbability = list.maxOfOrNull { it.probability ?: 0.0 }
+                list.filter { (it.probability ?: 0.0) == maxProbability }
+            } ?: emptyList()
+
         adapter = TreeHistoryAdapter(
-            treeDetails?.result?.disease?.suggestions!!,
+            highestProbabilityDiseases,
             treeDetails?.date.toString()
         )
 
