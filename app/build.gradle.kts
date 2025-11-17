@@ -96,6 +96,12 @@ dependencies {
     implementation(libs.androidx.constraintlayout)
     implementation(libs.androidx.navigation.fragment.ktx)
     implementation(libs.androidx.navigation.ui.ktx)
+    implementation(libs.firebase.firestore.ktx)
+    implementation(libs.google.services)
+    implementation(libs.firebase.bom)
+    implementation(libs.google.firebase.auth.ktx)
+    implementation(libs.play.services.auth)
+    implementation(libs.play.services.auth.api.phone)
 
     // Test dependencies
     testImplementation("junit:junit:4.13.2")

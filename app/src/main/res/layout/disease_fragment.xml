@@ -1,66 +1,52 @@
-<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fillViewport="true"
+    android:padding="16dp"
     tools:context=".DiseaseFragment">
 
-    <androidx.constraintlayout.widget.ConstraintLayout
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_marginBottom="50dp"
-        android:padding="16dp">
-
-        <androidx.cardview.widget.CardView
-            android:id="@+id/cardView"
-            android:layout_width="291dp"
-            android:layout_height="300dp"
-            android:layout_margin="30dp"
-            android:layout_marginEnd="45dp"
-            app:cardBackgroundColor="#FFFDE9"
-            app:cardCornerRadius="24dp"
-            app:cardElevation="12dp"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center_horizontal"
-                android:orientation="vertical"
-                android:padding="10dp">
-
-                <ImageView
-                    android:id="@+id/imageView"
-                    android:layout_width="320dp"
-                    android:layout_height="300dp"
-                    android:background="@android:color/white"
-                    android:contentDescription="Uploaded Leaf"
-                    android:padding="4dp"
-                    android:scaleType="centerCrop"
-                    android:src="@drawable/ic_upload" />
-            </LinearLayout>
-        </androidx.cardview.widget.CardView>
+    <!-- CardView for Uploaded Leaf and Accuracy -->
+    <androidx.cardview.widget.CardView
+        android:id="@+id/cardView"
+        android:layout_width="350dp"
+        android:layout_height="wrap_content"
+        android:layout_marginRight="16dp"
+        android:layout_marginTop="40dp"
+        app:cardBackgroundColor="#FFFDE9"
+        app:cardCornerRadius="24dp"
+        app:cardElevation="12dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
 
         <LinearLayout
-            android:id="@+id/buttonContainer"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:layout_marginTop="24dp"
             android:gravity="center_horizontal"
-            app:layout_constraintTop_toBottomOf="@id/cardView"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent">
+            android:orientation="vertical"
+            android:padding="10dp">
 
+            <!-- Uploaded Leaf Image -->
+            <ImageView
+                android:id="@+id/imageView"
+                android:layout_width="match_parent"
+                android:layout_height="300dp"
+                android:background="@android:color/white"
+                android:contentDescription="Uploaded Leaf"
+                android:padding="4dp"
+                android:scaleType="centerCrop"
+                android:src="@drawable/ic_upload" />
+
+            <!-- Accuracy Text inside CardView -->
             <TextView
-                android:layout_marginBottom="20dp"
                 android:id="@+id/accuracyText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="20dp"
+                android:layout_marginBottom="20dp"
                 android:gravity="center"
                 android:lineSpacingExtra="4dp"
                 android:text="🦠 Disease: N/A\n📊 Accuracy: 0%"
@@ -68,44 +54,56 @@
                 android:textSize="16sp"
                 android:textStyle="bold" />
 
-            <ProgressBar
-                android:id="@+id/progressBar"
-                style="@android:style/Widget.DeviceDefault.Light.ProgressBar.Large"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:layout_marginTop="24dp"
-                android:layout_marginBottom="20dp"
-                android:indeterminateTint="#B89DDF"
-                android:visibility="gone" />
-
-            <Button
-                android:id="@+id/captureBtn"
-                android:layout_width="200dp"
-                android:layout_height="56dp"
-                android:backgroundTint="#91D573"
-                android:drawableStart="@drawable/ic_camera"
-                android:drawablePadding="8dp"
-                android:gravity="center"
-                android:text="Take Photo"
-                android:textColor="@color/white"
-                android:textSize="16sp"
-                android:layout_gravity="center" />
-
-            <Button
-                android:id="@+id/galleryBtn"
-                android:layout_width="200dp"
-                android:layout_height="56dp"
-                android:layout_marginTop="12dp"
-                android:backgroundTint="#91D573"
-                android:drawableStart="@drawable/ic_gallery"
-                android:drawablePadding="8dp"
-                android:gravity="center"
-                android:text="Choose From Gallery"
-                android:textColor="@color/white"
-                android:textSize="16sp"
-                android:layout_gravity="center" />
         </LinearLayout>
+    </androidx.cardview.widget.CardView>
 
+    <!-- Button Container -->
+    <LinearLayout
+        android:id="@+id/buttonContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginRight="18dp"
+        android:orientation="vertical"
+        android:gravity="center_horizontal"
+        app:layout_constraintTop_toBottomOf="@id/cardView"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="16dp">
 
-    </androidx.constraintlayout.widget.ConstraintLayout>
-</androidx.core.widget.NestedScrollView>
+        <ProgressBar
+            android:id="@+id/progressBar"
+            style="@android:style/Widget.DeviceDefault.Light.ProgressBar.Large"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginTop="24dp"
+            android:layout_marginBottom="20dp"
+            android:indeterminateTint="#B89DDF"
+            android:visibility="gone" />
+
+        <Button
+            android:id="@+id/captureBtn"
+            android:layout_width="200dp"
+            android:layout_height="56dp"
+            android:backgroundTint="#91D573"
+            android:drawableStart="@drawable/ic_camera"
+            android:drawablePadding="8dp"
+            android:gravity="center"
+            android:text="Take Photo"
+            android:textColor="@color/white"
+            android:textSize="16sp" />
+
+        <Button
+            android:id="@+id/galleryBtn"
+            android:layout_width="200dp"
+            android:layout_height="56dp"
+            android:layout_marginTop="12dp"
+            android:backgroundTint="#91D573"
+            android:drawableStart="@drawable/ic_gallery"
+            android:drawablePadding="8dp"
+            android:gravity="center"
+            android:text="Choose From Gallery"
+            android:textColor="@color/white"
+            android:textSize="16sp" />
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

@@ -11,7 +11,6 @@
     android:background="@drawable/mangga"
     tools:context=".LoginActivity">
 
-
     <androidx.cardview.widget.CardView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -31,37 +30,49 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center"
-                android:gravity="center"
                 android:paddingBottom="16dp"
                 android:text="Login"
                 android:textColor="#2E7D32"
                 android:textSize="24sp"
                 android:textStyle="bold" />
 
-            <!-- Email Input -->
-            <EditText
-                android:id="@+id/etEmail"
+            <!-- Email - MATCHED OUTLINE STYLE -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/emailLayout"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:background="@android:color/white"
-                android:drawableStart="@android:drawable/ic_dialog_email"
-                android:hint="Email Address"
-                android:inputType="textEmailAddress"
-                android:padding="12dp"
-                android:textColor="#4E342E" />
+                app:boxBackgroundMode="outline">
 
-            <!-- Password Input -->
-            <EditText
-                android:id="@+id/etPassword"
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/etEmail"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@android:color/white"
+                    android:hint="Email Address"
+                    android:inputType="textEmailAddress"
+                    android:textColor="@color/black"/>
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- Password - MATCHED OUTLINE WITH EYE TOGGLE -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/passwordLayout"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
                 android:background="@android:color/white"
-                android:drawableStart="@android:drawable/ic_lock_lock"
-                android:hint="Password"
-                android:inputType="textPassword"
-                android:padding="12dp"
-                android:textColor="#4E342E" />
+                app:boxBackgroundMode="outline"
+                app:endIconMode="password_toggle">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/etPassword"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@android:color/white"
+                    android:hint="Password"
+                    android:inputType="textPassword"
+                    android:textColor="@color/black"/>
+            </com.google.android.material.textfield.TextInputLayout>
 
             <!-- Forgot Password -->
             <TextView
@@ -69,10 +80,10 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="end"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="15dp"
                 android:text="Forgot Password?"
                 android:textColor="@android:color/holo_blue_dark"
-                android:textSize="14sp" />
+                android:textSize="16sp" />
 
             <!-- Login Button -->
             <Button
@@ -85,7 +96,7 @@
                 android:textColor="@android:color/white"
                 android:textSize="20sp" />
 
-            <!-- Don't have an account? Sign up -->
+            <!-- Sign Up Redirect -->
             <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -94,7 +105,6 @@
                 android:orientation="horizontal">
 
                 <TextView
-                    android:id="@+id/textView"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Don't have an account?"

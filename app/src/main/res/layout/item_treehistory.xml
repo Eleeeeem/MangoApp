@@ -16,13 +16,20 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:padding="16dp">
+        <ImageView
+            android:id="@+id/ivDiseaseImage"
+            android:layout_width="match_parent"
+            android:layout_height="180dp"
+            android:scaleType="centerCrop"
+            android:background="#DADADA"
+            android:contentDescription="Disease image"
+            android:visibility="gone"/>
 
         <TextView
             android:id="@+id/tvDiseaseName"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:text="🦠 Disease: Powdery Mildew"
+            android:text=""
             android:textColor="@android:color/holo_red_dark"
             android:textSize="16sp" />
 
@@ -31,7 +38,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:text="📊 Accuracy: 95%"
+            android:text=""
             android:textColor="@android:color/black"
             android:textSize="14sp" />
 
@@ -40,7 +47,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:text="💊 Treatment: Apply fungicide"
+            android:text=""
             android:textColor="@android:color/black"
             android:textSize="14sp" />
 
@@ -49,7 +56,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
-            android:text="🕒 16/09/2025 15:30"
+            android:text=""
             android:textColor="@android:color/darker_gray"
             android:textSize="13sp" />
 

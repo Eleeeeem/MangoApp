@@ -1,9 +1,8 @@
 package com.example.mangocam
 
 import android.content.Context
-import android.graphics.Bitmap
-import android.graphics.Color
-import android.graphics.ImageDecoder
+import android.graphics.*
+import android.graphics.drawable.BitmapDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -30,15 +29,25 @@ import java.util.*
 class DiseaseFragment : Fragment() {
 
     private var listener: OnDiseaseDataListener? = null
-
     private lateinit var imageView: ImageView
     private lateinit var textViewResult: TextView
     private lateinit var captureButton: Button
     private lateinit var galleryButton: Button
     private lateinit var progressBar: ProgressBar
-    private lateinit var photoUri: Uri
 
-    val mangoScientificNames = listOf( "Mangifera indica L.", "Mangifera altissima", "Mangifera odorata", "Mangifera caesia", "Mangifera indica 'Carabao'", "Mangifera indica 'Ataulfo'", "Mangifera indica 'Katchamitha'", "Mangifera indica 'Pico'" )
+    // ✅ Store image URI for both camera and gallery
+    private var currentImageUri: Uri? = null
+
+    private val mangoScientificNames = listOf(
+        "Mangifera indica L.",
+        "Mangifera altissima",
+        "Mangifera odorata",
+        "Mangifera caesia",
+        "Mangifera indica 'Carabao'",
+        "Mangifera indica 'Ataulfo'",
+        "Mangifera indica 'Katchamitha'",
+        "Mangifera indica 'Pico'"
+    )
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -62,9 +71,7 @@ class DiseaseFragment : Fragment() {
 
     override fun onAttach(context: Context) {
         super.onAttach(context)
-        if (context is OnDiseaseDataListener) {
-            listener = context
-        }
+        if (context is OnDiseaseDataListener) listener = context
     }
 
     override fun onDetach() {
@@ -72,7 +79,7 @@ class DiseaseFragment : Fragment() {
         listener = null
     }
 
-    // --- Camera & Gallery ---
+    // ------------------------------- CAMERA + GALLERY --------------------------------------
     private val captureImageLauncher =
         registerForActivityResult(ActivityResultContracts.TakePicture()) { success ->
             if (success) handleCapturedImage()
@@ -86,11 +93,12 @@ class DiseaseFragment : Fragment() {
     private fun openCamera() {
         try {
             val photoFile = createImageFile()
-            photoUri = FileProvider.getUriForFile(
+            val photoUri = FileProvider.getUriForFile(
                 requireContext(),
                 "${requireContext().packageName}.provider",
                 photoFile
             )
+            currentImageUri = photoUri
             captureImageLauncher.launch(photoUri)
         } catch (e: Exception) {
             showError("Failed to open camera: ${e.message}")
@@ -101,12 +109,14 @@ class DiseaseFragment : Fragment() {
         pickImageLauncher.launch("image/*")
     }
 
-    // --- Image Handling ---
     private fun handleCapturedImage() {
         try {
-            val bitmap = getBitmapFromUri(photoUri)
-            imageView.setImageBitmap(bitmap)
-            processImage(bitmap)
+            currentImageUri?.let { uri ->
+                var bitmap = getBitmapFromUri(uri)
+                bitmap = toMutableBitmap(bitmap)
+                imageView.setImageBitmap(bitmap)
+                processImage(bitmap)
+            }
         } catch (e: Exception) {
             showError("Failed to process image: ${e.message}")
         }
@@ -114,7 +124,9 @@ class DiseaseFragment : Fragment() {
 
     private fun handleSelectedImage(uri: Uri) {
         try {
-            val bitmap = getBitmapFromUri(uri)
+            currentImageUri = uri
+            var bitmap = getBitmapFromUri(uri)
+            bitmap = toMutableBitmap(bitmap)
             imageView.setImageBitmap(bitmap)
             processImage(bitmap)
         } catch (e: Exception) {
@@ -122,6 +134,7 @@ class DiseaseFragment : Fragment() {
         }
     }
 
+    // ------------------------- BITMAP PROCESSING -------------------------------------
     private fun getBitmapFromUri(uri: Uri): Bitmap {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             ImageDecoder.decodeBitmap(
@@ -133,12 +146,20 @@ class DiseaseFragment : Fragment() {
         }
     }
 
-    private fun createImageFile(): File {
-        val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-        return File.createTempFile("JPEG_${timeStamp}_", ".jpg", requireContext().externalCacheDir)
+    private fun toMutableBitmap(bitmap: Bitmap): Bitmap {
+        return if (bitmap.config == Bitmap.Config.HARDWARE || !bitmap.isMutable) {
+            bitmap.copy(Bitmap.Config.ARGB_8888, true)
+        } else bitmap
     }
 
-    // --- Processing ---
+    private fun createImageFile(): File {
+        val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+        return File.createTempFile(
+            "JPEG_${timeStamp}_", ".jpg", requireContext().externalCacheDir
+        )
+    }
+
+    // ------------------------- API CALL FLOW -----------------------------------------
     private fun processImage(bitmap: Bitmap) {
         val base64Image = compressImage(bitmap)
         identifyAndCheckHealth(base64Image)
@@ -146,27 +167,27 @@ class DiseaseFragment : Fragment() {
 
     private fun compressImage(bitmap: Bitmap): String {
         val resized = resizeBitmap(bitmap)
-        val outputStream = ByteArrayOutputStream()
-        resized.compress(Bitmap.CompressFormat.JPEG, 85, outputStream)
-        return Base64.encodeToString(outputStream.toByteArray(), Base64.NO_WRAP)
+        val output = ByteArrayOutputStream()
+        resized.compress(Bitmap.CompressFormat.JPEG, 85, output)
+        return Base64.encodeToString(output.toByteArray(), Base64.NO_WRAP)
     }
 
     private fun resizeBitmap(bitmap: Bitmap, maxSize: Int = 800): Bitmap {
         val width = bitmap.width
         val height = bitmap.height
         if (width <= maxSize && height <= maxSize) return bitmap
-
         val scale = maxSize.toFloat() / maxOf(width, height)
-        val newWidth = (width * scale).toInt()
-        val newHeight = (height * scale).toInt()
-
-        return Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true)
+        return Bitmap.createScaledBitmap(
+            bitmap,
+            (width * scale).toInt(),
+            (height * scale).toInt(),
+            true
+        )
     }
 
-    // --- API Call ---
+    // -------------------- IDENTIFICATION + HEALTH CHECK -------------------------------
     private fun identifyAndCheckHealth(imageBase64: String) {
-        showLoading("Detecting Disease...")
-
+        showLoading("Detecting Disease…")
         val request = PlantRequest(
             images = listOf(imageBase64),
             health = "auto",
@@ -174,36 +195,29 @@ class DiseaseFragment : Fragment() {
             similar_images = true,
             symptoms = true
         )
-
         RetrofitClient.plantApi.identifyPlant(request).enqueue(object : Callback<PlantResponse> {
-            override fun onResponse(call: Call<PlantResponse>, response: Response<PlantResponse>) {
+            override fun onResponse(
+                call: Call<PlantResponse>,
+                response: Response<PlantResponse>
+            ) {
                 progressBar.visibility = View.GONE
-
                 if (!response.isSuccessful) {
                     showError("Identification failed: ${response.code()}")
                     return
                 }
-
-                val result = response.body()?.result
-                if (result?.is_plant?.binary == false) {
-                    showError("❌ This image does not appear to be a plant.")
+                val result = response.body()?.result ?: return
+                val suggestions = result.classification?.suggestions ?: emptyList()
+                val detectedNames = suggestions.map { it.name.lowercase() }
+                val hasMango = detectedNames.any { name ->
+                    mangoScientificNames.any { sci -> name.contains(sci.lowercase()) }
+                            || name.contains("mango")
+                            || name.contains("mangifera")
+                }
+                if (!hasMango) {
+                    showError("⚠️ This does not appear to be a mango leaf or fruit.")
                     return
                 }
-
-                val suggestions = result?.classification?.suggestions
-                val topSuggestion = suggestions?.firstOrNull()
-                val inputName = topSuggestion?.name
-
-                if(inputName == null)
-                {
-                    showError("Unable to process the image.")
-                }else if(!matchesScientificNameContain(inputName, mangoScientificNames))
-                {
-                    showError("The image does not indicate a distinguishable part of a mango tree.")
-                }else
-                {
-                    getMangoAssessment(imageBase64)
-                }
+                getMangoAssessment(imageBase64)
             }
 
             override fun onFailure(call: Call<PlantResponse>, t: Throwable) {
@@ -212,14 +226,7 @@ class DiseaseFragment : Fragment() {
         })
     }
 
-    fun matchesScientificNameContain(input: String, names: List<String>): Boolean {
-        val inputLower = input.trim().lowercase()
-        return names.any { fullName ->
-            fullName.lowercase().contains(inputLower) || inputLower.contains(fullName.lowercase())
-        }
-    }
-    private fun getMangoAssessment(imageBase64: String)
-    {
+    private fun getMangoAssessment(imageBase64: String) {
         val request = PlantRequest(
             images = listOf(imageBase64),
             health = "auto",
@@ -227,110 +234,103 @@ class DiseaseFragment : Fragment() {
             similar_images = true,
             symptoms = true
         )
-
-        RetrofitClient.plantApi.healthAssesment(request).enqueue(object : Callback<PlantResponse> {
-            override fun onResponse(call: Call<PlantResponse>, response: Response<PlantResponse>) {
-                progressBar.visibility = View.GONE
-
-                if (!response.isSuccessful) {
-                    showError("Identification failed: ${response.code()}")
-                    return
+        RetrofitClient.plantApi.healthAssesment(request)
+            .enqueue(object : Callback<PlantResponse> {
+                override fun onResponse(
+                    call: Call<PlantResponse>,
+                    response: Response<PlantResponse>
+                ) {
+                    progressBar.visibility = View.GONE
+                    if (!response.isSuccessful) {
+                        showError("Health check failed: ${response.code()}")
+                        return
+                    }
+                    val result = response.body()?.result ?: return
+                    listener?.onDataReceived(response.body(), currentImageUri)
+                    val diseases = result.disease?.suggestions
+                        ?: response.body()?.health_assessment?.diseases
+                    val currentBitmap = (imageView.drawable as? BitmapDrawable)?.bitmap
+                    val isGreen = currentBitmap?.let { isGreenAndHealthy(it) } ?: false
+                    if (diseases == null || diseases.isEmpty() || isGreen) {
+                        showHealthyMessage("Mangifera indica")
+                    } else {
+                        showDiseaseDetails(diseases, "Mangifera indica")
+                    }
                 }
 
-                val result = response.body()?.result
-                if (result?.is_plant?.binary == false) {
-                    showError("This image does not appear to be a plant.")
-                    return
+                override fun onFailure(call: Call<PlantResponse>, t: Throwable) {
+                    handleNetworkError(t)
                 }
-
-                listener?.onDataReceived(response.body())
-
-                val suggestions = result?.classification?.suggestions
-                val topSuggestion = suggestions?.firstOrNull()
-                val rawPlantName = topSuggestion?.name ?: "Unknown Plant"
-                val formattedPlantName =
-                    if (rawPlantName.lowercase().contains("mangifera")) "Mangifera indica" else rawPlantName
-
-                val diseaseSuggestions = result?.disease?.suggestions
-                    ?: response.body()?.health_assessment?.diseases
-
-                if (diseaseSuggestions.isNullOrEmpty()) {
-                    showHealthyMessage(formattedPlantName)
-                } else {
-                    showDiseaseDetails(diseaseSuggestions, formattedPlantName)
-                }
-            }
-
-            override fun onFailure(call: Call<PlantResponse>, t: Throwable) {
-                handleNetworkError(t)
-            }
-        })
+            })
     }
 
-    // --- Results ---
-    private fun showDiseaseDetails(diseases: List<DiseaseSuggestion>, plantName: String) {
-        val history = PlantDescriptionCreator.showDiseaseDetails(diseases,plantName)
-        val diseaseName = history.diseaseName
-        val resultText = """
-                        Not Healthy
-                        🦠 Disease: $diseaseName
-                        """.trimIndent()
+    // ----------------------------- HEALTH RULES ---------------------------------------
+    private fun isGreenAndHealthy(bitmap: Bitmap): Boolean {
+        var greenPixels = 0
+        var totalPixels = 0
+        for (x in 0 until bitmap.width step 10) {
+            for (y in 0 until bitmap.height step 10) {
+                val pixel = bitmap.getPixel(x, y)
+                val r = Color.red(pixel)
+                val g = Color.green(pixel)
+                val b = Color.blue(pixel)
+                if (g > r && g > b && g > 80) greenPixels++
+                totalPixels++
+            }
+        }
+        return greenPixels.toFloat() / totalPixels > 0.5f
+    }
 
+    private fun showDiseaseDetails(diseases: List<DiseaseSuggestion>, plantName: String) {
+        val history = PlantDescriptionCreator.showDiseaseDetails(diseases, plantName)
         activity?.runOnUiThread {
             textViewResult.setTextColor(Color.RED)
-            textViewResult.text = resultText
+            textViewResult.text = "🦠 Disease detected: ${history.diseaseName}"
         }
-
         saveToHistory(history)
     }
 
     private fun showHealthyMessage(plantName: String) {
-        val resultText = "✅ $plantName looks healthy!"
-
+        val history = PlantDescriptionCreator.showHealthyMessage(plantName)
         activity?.runOnUiThread {
-            textViewResult.setTextColor(Color.parseColor("#388E3C"))
-            textViewResult.text = resultText
+            textViewResult.setTextColor(Color.parseColor("#2E7D32"))
+            textViewResult.text = "✅ Mango looks healthy!"
         }
-
-        val diseaseHistory = PlantDescriptionCreator.showHealthyMessage(plantName);
-        saveToHistory(diseaseHistory)
+        saveToHistory(history)
     }
 
+    // ------------------------------ SAVE HISTORY --------------------------------------
+    private fun saveToHistory(newEntry: DiseaseHistory) {
+        val finalEntry = newEntry.copy(
+            imageUri = currentImageUri?.toString()
+        )
+        val prefs = requireContext().getSharedPreferences("disease_history", Context.MODE_PRIVATE)
+        val gson = Gson()
+        val type = object : TypeToken<MutableList<DiseaseHistory>>() {}.type
+        val list: MutableList<DiseaseHistory> =
+            gson.fromJson(prefs.getString("history", null), type) ?: mutableListOf()
+        list.add(0, finalEntry)
+        prefs.edit().putString("history", gson.toJson(list)).apply()
+        Log.d("DiseaseFragment", "✅ Saved history: ${gson.toJson(list)}")
+    }
+
+    // ------------------------------ UTIL ----------------------------------------------
     private fun showLoading(message: String) {
         progressBar.visibility = View.VISIBLE
-        activity?.runOnUiThread {
-            textViewResult.text = "⏳ $message"
-        }
+        activity?.runOnUiThread { textViewResult.text = "⏳ $message" }
     }
 
     private fun showError(message: String) {
         progressBar.visibility = View.GONE
-        activity?.runOnUiThread {
-            textViewResult.text = "❌ $message"
-        }
+        activity?.runOnUiThread { textViewResult.text = "❌ $message" }
     }
 
     private fun handleNetworkError(t: Throwable) {
-        val message = when (t) {
-            is SocketTimeoutException -> "Connection timeout. Please try again."
-            is IOException -> "Network error. Check your internet connection."
+        val msg = when (t) {
+            is SocketTimeoutException -> "Connection timeout. Try again."
+            is IOException -> "Network error. Check your internet."
             else -> "Error: ${t.message}"
         }
-        showError(message)
-    }
-
-    private fun saveToHistory(newEntry: DiseaseHistory) {
-        val prefs = requireContext().getSharedPreferences("disease_history", Context.MODE_PRIVATE)
-        val gson = Gson()
-
-        val type = object : TypeToken<MutableList<DiseaseHistory>>() {}.type
-        val historyList: MutableList<DiseaseHistory> =
-            gson.fromJson(prefs.getString("history", null), type) ?: mutableListOf()
-
-        historyList.add(0, newEntry)
-
-        prefs.edit().putString("history", gson.toJson(historyList)).apply()
-
-        Log.d("DiseaseFragment", "History saved: ${gson.toJson(historyList)}")
+        showError(msg)
     }
 }

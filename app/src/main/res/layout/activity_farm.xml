@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/main"
@@ -9,6 +8,7 @@
     android:background="@drawable/mangga"
     tools:context=".FarmActivity">
 
+    <!-- 🌿 Top bar -->
     <LinearLayout
         android:id="@+id/topBar"
         android:layout_width="0dp"
@@ -25,58 +25,54 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Title"
+            android:text="Farm Name"
             android:textColor="@color/black"
             android:textSize="24sp"
             android:textStyle="bold" />
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Add Tree"
-            android:textColor="@color/black"
-            android:textSize="14sp"
-            android:layout_marginEnd="8dp" />
-
+        <!-- ✅ Replaced old + button + label with a proper Add Tree button -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/addTreeButton"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:background="@drawable/ic_add"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:elevation="6dp"
+            android:fontFamily="sans-serif-medium"
             android:onClick="AddTree"
-            android:text=""
-            app:backgroundTint="@color/black"
-            app:cornerRadius="20dp"
+            android:paddingHorizontal="20dp"
+            android:paddingVertical="10dp"
+            android:text="Add Tree"
+            android:textColor="@android:color/white"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            app:backgroundTint="#4CAF50"
+            app:cornerRadius="50dp"
             app:icon="@drawable/ic_add"
-            app:iconGravity="textStart"
-            app:iconPadding="0dp"
-            app:iconTint="@android:color/black" />
+            app:iconGravity="start"
+            app:iconTint="@android:color/white" />
     </LinearLayout>
 
+    <!-- 🌱 RecyclerView for Trees -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rcTrees"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:clipToPadding="false"
         android:padding="13dp"
-        android:background="#00FFF2F2"
         app:layout_constraintTop_toBottomOf="@id/topBar"
-        app:layout_constraintBottom_toTopOf="@id/removeFarmButton"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <com.google.android.material.button.MaterialButton
-        android:textColor="@color/white"
-        android:id="@+id/removeFarmButton"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_margin="8dp"
-        android:text="Remove Farm"
-        app:backgroundTint="@android:color/holo_red_light"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        android:onClick="RemoveFarm"
-        />
-
+    <!-- 🚜 Remove Farm Button -->
+<!--    <com.google.android.material.button.MaterialButton-->
+<!--        android:id="@+id/removeFarmButton"-->
+<!--        android:layout_width="0dp"-->
+<!--        android:layout_height="wrap_content"-->
+<!--        android:text="Remove Farm"-->
+<!--        android:textColor="@android:color/white"-->
+<!--        android:onClick="RemoveFarm"-->
+<!--        app:backgroundTint="@android:color/holo_red_light"-->
+<!--        app:layout_constraintBottom_toBottomOf="parent"-->
+<!--        app:layout_constraintStart_toStartOf="parent"-->
+<!--        app:layout_constraintEnd_toEndOf="parent"-->
+<!--        android:layout_margin="8dp"/>-->
 </androidx.constraintlayout.widget.ConstraintLayout>

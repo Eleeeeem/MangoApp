@@ -1,150 +1,177 @@
 package com.example.mangocam
 
 import android.app.DatePickerDialog
+import android.content.Intent
 import android.os.Bundle
-import android.view.View
+import android.util.Log
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
-import com.google.firebase.database.*
+import com.google.android.material.textfield.TextInputLayout
+import com.google.firebase.firestore.FirebaseFirestore
 import java.util.*
 
 class ForgotPasswordActivity : AppCompatActivity() {
 
-    private lateinit var etUsername: EditText
+    private lateinit var etEmail: EditText
     private lateinit var etBirthday: EditText
+    private lateinit var etContact: EditText
+    private lateinit var btnVerify: Button
+
+    private lateinit var layoutNewPassword: TextInputLayout
+    private lateinit var layoutConfirmPassword: TextInputLayout
     private lateinit var etNewPassword: EditText
     private lateinit var etConfirmPassword: EditText
-    private lateinit var btnVerify: Button
     private lateinit var btnResetPassword: Button
 
-    private lateinit var dbRef: DatabaseReference
-    private var attempts = 0
-    private val maxAttempts = 3
-    private var verifiedUserRef: DatabaseReference? = null // store reference of verified user
+    private val firestore = FirebaseFirestore.getInstance()
+    private var verifiedUserId: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_forgot_password)
 
         // Initialize views
-        etUsername = findViewById(R.id.etUsernameReset)
+        etEmail = findViewById(R.id.etEmailReset)
         etBirthday = findViewById(R.id.etBirthdayReset)
+        etContact = findViewById(R.id.etContactReset)
+        btnVerify = findViewById(R.id.btnVerify)
+
+        layoutNewPassword = findViewById(R.id.layoutNewPassword)
+        layoutConfirmPassword = findViewById(R.id.layoutConfirmPassword)
         etNewPassword = findViewById(R.id.etNewPassword)
         etConfirmPassword = findViewById(R.id.etConfirmPassword)
-        btnVerify = findViewById(R.id.btnVerify)
         btnResetPassword = findViewById(R.id.btnResetPassword)
 
-        dbRef = FirebaseDatabase.getInstance().getReference("users")
+        // Ensure password layouts are initially hidden
+        layoutNewPassword.visibility = TextInputLayout.GONE
+        layoutConfirmPassword.visibility = TextInputLayout.GONE
+        btnResetPassword.visibility = Button.GONE
 
-        // Show calendar when clicking birthday
-        etBirthday.setOnClickListener {
-            showDatePicker()
+        // Pre-fill contact if passed from intent
+        val passedNumber = intent.getStringExtra("prefill_number")
+        if (!passedNumber.isNullOrEmpty()) {
+            etContact.setText(passedNumber)
+            etContact.isEnabled = false
         }
 
-        // Verify user
-        btnVerify.setOnClickListener {
-            verifyUser()
-        }
-
-        // Reset password
-        btnResetPassword.setOnClickListener {
-            resetPassword()
-        }
+        // Listeners
+        etBirthday.setOnClickListener { showDatePicker() }
+        btnVerify.setOnClickListener { verifyUser() }
+        btnResetPassword.setOnClickListener { resetPassword() }
     }
 
     private fun showDatePicker() {
-        val calendar = Calendar.getInstance()
-        val year = calendar.get(Calendar.YEAR)
-        val month = calendar.get(Calendar.MONTH)
-        val day = calendar.get(Calendar.DAY_OF_MONTH)
-
-        val datePicker = DatePickerDialog(
+        val cal = Calendar.getInstance()
+        val dialog = DatePickerDialog(
             this,
-            { _, selectedYear, selectedMonth, selectedDay ->
-                val date = String.format("%02d/%02d/%04d", selectedDay, selectedMonth + 1, selectedYear)
-                etBirthday.setText(date)
-            },
-            year, month, day
+            { _, y, m, d -> etBirthday.setText("${m + 1}/$d/$y") },
+            cal.get(Calendar.YEAR),
+            cal.get(Calendar.MONTH),
+            cal.get(Calendar.DAY_OF_MONTH)
         )
-        datePicker.show()
+        dialog.show()
+    }
+
+    // Normalize contact number (+63 or 0)
+    private fun normalizeContact(contact: String): String {
+        var formatted = contact.trim()
+        if (formatted.startsWith("0")) {
+            formatted = formatted.replaceFirst("0", "+63")
+        }
+        return formatted
     }
 
     private fun verifyUser() {
-        val username = etUsername.text.toString().trim()
+        val email = etEmail.text.toString().trim()
         val birthday = etBirthday.text.toString().trim()
+        val contact = etContact.text.toString().trim()
 
-        if (username.isEmpty() || birthday.isEmpty()) {
-            Toast.makeText(this, "Enter username and birthday", Toast.LENGTH_SHORT).show()
+        if (email.isEmpty() || birthday.isEmpty() || contact.isEmpty()) {
+            Toast.makeText(this, "Please fill in all fields", Toast.LENGTH_SHORT).show()
             return
         }
 
-        dbRef.orderByChild("name").equalTo(username) // 🔹 use 'name' instead of username
-            .addListenerForSingleValueEvent(object : ValueEventListener {
-                override fun onDataChange(snapshot: DataSnapshot) {
-                    if (snapshot.exists()) {
-                        var matched = false
-                        for (userSnapshot in snapshot.children) {
-                            val user = userSnapshot.getValue(HelperClass::class.java)
-                            if (user?.birthday == birthday) {
-                                matched = true
-                                verifiedUserRef = userSnapshot.ref
+        val normalizedContact = normalizeContact(contact)
+        Log.d("VERIFY", "email=$email, birthday=$birthday, contact=$normalizedContact")
 
-                                Toast.makeText(this@ForgotPasswordActivity, "Verification successful!", Toast.LENGTH_SHORT).show()
+        firestore.collection("users")
+            .whereEqualTo("email", email)
+            .whereEqualTo("birthday", birthday)
+            .whereEqualTo("contact", normalizedContact)
+            .get()
+            .addOnSuccessListener { result ->
+                Log.d("VERIFY", "Documents found: ${result.size()}")
 
-                                // Show password reset fields
-                                etNewPassword.visibility = View.VISIBLE
-                                etConfirmPassword.visibility = View.VISIBLE
-                                btnResetPassword.visibility = View.VISIBLE
+                if (!result.isEmpty) {
+                    val document = result.documents[0]
+                    verifiedUserId = document.id
 
-                                btnVerify.isEnabled = false
-                                break
-                            }
-                        }
-                        if (!matched) {
-                            handleFailedAttempt()
-                        }
-                    } else {
-                        handleFailedAttempt()
-                    }
+                    Toast.makeText(
+                        this,
+                        "Account verified! You can now reset your password.",
+                        Toast.LENGTH_SHORT
+                    ).show()
+
+                    // Show password fields
+                    layoutNewPassword.visibility = TextInputLayout.VISIBLE
+                    layoutConfirmPassword.visibility = TextInputLayout.VISIBLE
+                    btnResetPassword.visibility = Button.VISIBLE
+
+                    btnVerify.isEnabled = false
+                } else {
+                    Toast.makeText(this, "No matching account found", Toast.LENGTH_LONG).show()
                 }
-
-                override fun onCancelled(error: DatabaseError) {
-                    Toast.makeText(this@ForgotPasswordActivity, "Database error: ${error.message}", Toast.LENGTH_SHORT).show()
-                }
-            })
-    }
-
-    private fun handleFailedAttempt() {
-        attempts++
-        if (attempts >= maxAttempts) {
-            Toast.makeText(this, "Too many failed attempts. Try again later.", Toast.LENGTH_LONG).show()
-            btnVerify.isEnabled = false
-        } else {
-            Toast.makeText(this, "Invalid username or birthday. Attempts left: ${maxAttempts - attempts}", Toast.LENGTH_SHORT).show()
-        }
+            }
+            .addOnFailureListener { e ->
+                Toast.makeText(this, "Error verifying user: ${e.message}", Toast.LENGTH_LONG).show()
+                Log.e("VERIFY", "Error verifying user", e)
+            }
     }
 
     private fun resetPassword() {
-        val newPassword = etNewPassword.text.toString().trim()
-        val confirmPassword = etConfirmPassword.text.toString().trim()
+        val newPass = etNewPassword.text.toString().trim()
+        val confirmPass = etConfirmPassword.text.toString().trim()
 
-        if (newPassword.isEmpty() || confirmPassword.isEmpty()) {
-            Toast.makeText(this, "Enter both password fields", Toast.LENGTH_SHORT).show()
+        // Validate empty fields
+        if (newPass.isEmpty() || confirmPass.isEmpty()) {
+            Toast.makeText(this, "Please enter both password fields", Toast.LENGTH_SHORT).show()
             return
         }
 
-        if (newPassword != confirmPassword) {
+        // Password mismatch check
+        if (newPass != confirmPass) {
+            // Show Toast + inline error
             Toast.makeText(this, "Passwords do not match", Toast.LENGTH_SHORT).show()
+
+            layoutNewPassword.error = "Passwords do not match"
+            layoutConfirmPassword.error = "Passwords do not match"
+
+            // Optionally clear confirm field
+            etConfirmPassword.text?.clear()
+
             return
+        } else {
+            // Clear errors if passwords match
+            layoutNewPassword.error = null
+            layoutConfirmPassword.error = null
         }
 
-        verifiedUserRef?.child("password")?.setValue(newPassword)
-            ?.addOnSuccessListener {
-                Toast.makeText(this, "Password updated successfully!", Toast.LENGTH_SHORT).show()
-                finish()
-            }
-            ?.addOnFailureListener {
-                Toast.makeText(this, "Failed to update password", Toast.LENGTH_SHORT).show()
-            }
+        // Proceed only if verified
+        verifiedUserId?.let { userId ->
+            firestore.collection("users")
+                .document(userId)
+                .update("password", newPass)
+                .addOnSuccessListener {
+                    Toast.makeText(this, "Password updated successfully!", Toast.LENGTH_LONG).show()
+                    startActivity(Intent(this, LoginActivity::class.java))
+                    finish()
+                }
+                .addOnFailureListener { e ->
+                    Toast.makeText(this, "Error updating password: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+        } ?: run {
+            Toast.makeText(this, "Please verify your account first", Toast.LENGTH_SHORT).show()
+        }
     }
+
 }

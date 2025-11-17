@@ -1,44 +1,58 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:layout_margin="8dp"
-    app:cardCornerRadius="16dp"
-    app:cardElevation="6dp"
-    app:cardBackgroundColor="@android:color/white"
-    android:foreground="?attr/selectableItemBackground">
-
-    <LinearLayout
+    <androidx.cardview.widget.CardView
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        xmlns:app="http://schemas.android.com/apk/res-auto"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:padding="5dp">
+        android:layout_margin="8dp"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="6dp"
+        app:cardBackgroundColor="@android:color/white">
 
         <LinearLayout
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="16dp"
-            android:layout_weight="1"
-            android:orientation="vertical">
+            android:orientation="vertical"
+            android:padding="16dp">
 
-            <TextView
-                android:id="@+id/tvTreeId"
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Tree 101"
-                android:textColor="@android:color/black"
-                android:textSize="16sp"
-                android:textStyle="bold" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:weightSum="1">
 
-            <TextView
-                android:id="@+id/tvPlantedDate"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Planted: 2020/03/15"
-                android:textColor="@android:color/darker_gray"
-                android:textSize="14sp" />
+                <TextView
+                    android:id="@+id/tvTreeId"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Tree 101"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="@android:color/black"/>
+
+                <!-- ✏️ Rename icon -->
+
+                <!-- 🗑️ Delete icon -->
+                <ImageButton
+                    android:id="@+id/btnRenameTree"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Rename Tree"
+                    android:src="@android:drawable/ic_menu_edit"
+                    app:tint="#4CAF50" />
+
+                <ImageButton
+                    android:id="@+id/btnDeleteTree"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Delete Tree"
+                    android:src="@android:drawable/ic_delete"
+                    app:tint="#FB0707" />
+            </LinearLayout>
 
             <TextView
                 android:id="@+id/tvStatus"
@@ -46,39 +60,33 @@
                 android:layout_height="wrap_content"
                 android:text="Status: Healthy"
                 android:textColor="@android:color/holo_green_dark"
-                android:textSize="14sp" />
+                android:textSize="14sp"
+                android:layout_marginTop="4dp"/>
 
             <LinearLayout
-                android:orientation="horizontal"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:padding="8dp">
+                android:orientation="horizontal"
+                android:layout_marginTop="8dp">
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/checkDetail"
-                    android:textColor="@color/white"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="4dp"
                     android:layout_weight="1"
                     android:text="Check Details"
-                    android:onClick="RemoveFarm"
-                    android:backgroundTint="@color/green" />
+                    app:backgroundTint="@color/green"
+                    android:textColor="@android:color/white"/>
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/diagnose"
-                    android:textColor="@color/white"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="4dp"
                     android:layout_weight="1"
+                    android:layout_marginStart="8dp"
                     android:text="Diagnose"
-                    android:onClick="RemoveFarm"
-                    android:backgroundTint="@color/green" />
+                    app:backgroundTint="@color/green"
+                    android:textColor="@android:color/white"/>
             </LinearLayout>
-
-
         </LinearLayout>
-
-    </LinearLayout>
-</androidx.cardview.widget.CardView>
+    </androidx.cardview.widget.CardView>

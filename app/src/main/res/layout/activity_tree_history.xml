@@ -1,47 +1,61 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="@drawable/mangga"
+    android:padding="16dp"
     tools:context=".TreeHistoryActivity">
 
+    <!-- Title -->
     <TextView
-        android:textSize="18sp"
-        android:gravity="center"
-        android:textColor="@color/black"
+        android:id="@+id/titleText"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_margin="8dp"
-        android:text="Mango History"
-        android:textStyle="bold" />
+        android:text="🌳 Mango Scan History"
+        android:textAlignment="center"
+        android:textColor="@color/black"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="8dp" />
 
+    <!-- Section Label -->
     <TextView
+        android:id="@+id/sectionLabel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Disease Records"
         android:textColor="@color/black"
         android:textStyle="bold"
-        android:layout_margin="8dp"
-        android:text="Disease"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
+        android:textSize="16sp"
+        android:layout_marginBottom="6dp" />
 
+    <!-- RecyclerView container (scrollable area) -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/diseaseRc"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:background="#00FFF2F2"
-        android:clipToPadding="false" />
+        android:background="@android:color/transparent"
+        android:clipToPadding="false"
+        android:paddingBottom="12dp"
+        android:overScrollMode="ifContentScrolls"
+        tools:listitem="@layout/item_treehistory" />
 
+    <!-- Empty/healthy state label -->
     <TextView
         android:id="@+id/healthyTagTv"
-        android:textColor="@color/black"
-        android:textStyle="bold"
-        android:text="Mango is Healty"
-        android:gravity="center"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:textSize="20sp"/>
+        android:layout_height="wrap_content"
+        android:text="Mango is Healthy 🍃"
+        android:textColor="@color/black"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:layout_marginTop="12dp"
+        android:visibility="gone" />
+
 </LinearLayout>

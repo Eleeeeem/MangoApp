@@ -1,83 +1,102 @@
 package com.example.mangocam
 
+import android.app.ProgressDialog
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
-import android.widget.Button
-import android.widget.EditText
-import android.widget.TextView
-import android.widget.Toast
+import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
-import com.google.firebase.database.*
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 
 class LoginActivity : AppCompatActivity() {
+
+    private lateinit var auth: FirebaseAuth
+    private lateinit var firestore: FirebaseFirestore
+    private lateinit var progressDialog: ProgressDialog
 
     private lateinit var etEmail: EditText
     private lateinit var etPassword: EditText
     private lateinit var btnLogin: Button
-    private lateinit var tvSignUpRedirect: TextView
-    private lateinit var tvForgotPassword: TextView // Add this line
-    private lateinit var databaseReference: DatabaseReference
+    private lateinit var tvForgotPassword: TextView
+    private lateinit var tvSignUp: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_login)
 
-        // Initialize Views
+        auth = FirebaseAuth.getInstance()
+        firestore = FirebaseFirestore.getInstance()
+        progressDialog = ProgressDialog(this)
+
         etEmail = findViewById(R.id.etEmail)
         etPassword = findViewById(R.id.etPassword)
         btnLogin = findViewById(R.id.btnLogin)
-        tvSignUpRedirect = findViewById(R.id.tvSignUp)
-        tvForgotPassword = findViewById(R.id.tvForgotPassword) // Initialize here
+        tvForgotPassword = findViewById(R.id.tvForgotPassword)
+        tvSignUp = findViewById(R.id.tvSignUp)
 
-        // Firebase Database Reference
-        databaseReference = FirebaseDatabase.getInstance().getReference("users")
+        btnLogin.setOnClickListener { loginUser() }
 
-        // Login Button Click (IMPROVED)
-        btnLogin.setOnClickListener {
-            val email = etEmail.text.toString().trim()
-            val password = etPassword.text.toString().trim()
-
-            if (email.isEmpty() || password.isEmpty()) {
-                Toast.makeText(this, "All fields are required", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-
-            // Secure and efficient login check
-            databaseReference.orderByChild("email").equalTo(email).addListenerForSingleValueEvent(object : ValueEventListener {
-                override fun onDataChange(snapshot: DataSnapshot) {
-                    if (snapshot.exists()) {
-                        for (userSnapshot in snapshot.children) {
-                            val user = userSnapshot.getValue(HelperClass::class.java)
-                            if (user?.password == password) {
-                                Toast.makeText(this@LoginActivity, "Login Successful!", Toast.LENGTH_SHORT).show()
-                                getSharedPreferences("UserSession", MODE_PRIVATE)
-                                    .edit()
-                                    .putString("userId", userSnapshot.key) // Use the unique key
-                                    .apply()
-                                startActivity(Intent(this@LoginActivity, MainActivity::class.java))
-                                finish()
-                                return
-                            }
-                        }
-                    }
-                    Toast.makeText(this@LoginActivity, "Invalid credentials!", Toast.LENGTH_SHORT).show()
-                }
-
-                override fun onCancelled(error: DatabaseError) {
-                    Toast.makeText(this@LoginActivity, "Database error: ${error.message}", Toast.LENGTH_SHORT).show()
-                }
-            })
-        }
-
-        // Redirect to Sign-Up
-        tvSignUpRedirect.setOnClickListener {
+        tvSignUp.setOnClickListener {
             startActivity(Intent(this, SignUpActivity::class.java))
             finish()
         }
 
-        // Redirect to Forgot Password Activity
         tvForgotPassword.setOnClickListener {
-            startActivity(Intent(this, ForgotPasswordActivity::class.java))
+            val intent = Intent(this, ForgotPasswordChoiceActivity::class.java)
+            // Pass along the email field if user already typed it (optional UX sugar)
+            intent.putExtra("prefill_email", etEmail.text.toString().trim())
+            startActivity(intent)
         }
+    }
+
+    private fun loginUser() {
+        val email = etEmail.text.toString().trim()
+        val password = etPassword.text.toString().trim()
+
+        if (email.isEmpty() || password.isEmpty()) {
+            Toast.makeText(this, "Please fill in all fields", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        progressDialog.setMessage("Logging in...")
+        progressDialog.show()
+
+        auth.signInWithEmailAndPassword(email, password)
+            .addOnSuccessListener { result ->
+                val userId = result.user?.uid ?: return@addOnSuccessListener
+
+                firestore.collection("users").document(userId)
+                    .get()
+                    .addOnSuccessListener { doc ->
+                        progressDialog.dismiss()
+                        if (doc.exists()) {
+                            val sharedPref = getSharedPreferences("UserSession", Context.MODE_PRIVATE)
+                            sharedPref.edit()
+                                .putString("userId", userId)
+                                .putString("name", doc.getString("name"))
+                                .putString("email", doc.getString("email"))
+                                .putString("address", doc.getString("address"))
+                                .putString("contact", doc.getString("contact")) // store phone here
+                                .putString("birthday", doc.getString("birthday"))
+                                .putString("dateJoined", doc.getString("dateJoined"))
+                                .apply()
+
+                            Toast.makeText(this, "Login successful", Toast.LENGTH_SHORT).show()
+                            startActivity(Intent(this, MainActivity::class.java))
+                            finish()
+                        } else {
+                            Toast.makeText(this, "User record not found", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    .addOnFailureListener {
+                        progressDialog.dismiss()
+                        Toast.makeText(this, "Failed to load user data", Toast.LENGTH_SHORT).show()
+                    }
+            }
+            .addOnFailureListener {
+                progressDialog.dismiss()
+                Toast.makeText(this, "Invalid email or password", Toast.LENGTH_SHORT).show()
+            }
     }
 }

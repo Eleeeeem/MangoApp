@@ -16,6 +16,7 @@
     <color name="red">#D32F2F</color>
     <color name="green">#388E3C</color>
     <color name="blue">#1976D2</color>
+    <color name="teal">#008080</color>
 
     <!-- Background Colors -->
     <color name="background">#F5F5F5</color>

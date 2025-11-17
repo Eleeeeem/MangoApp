@@ -1,9 +1,15 @@
 package com.example.mangoo
+import java.io.Serializable
 
 data class DiseaseHistory(
-    val plantName: String = "",
-    val diseaseName: String = "",
-    val accuracy: String = "",
-    val treatment: String? = null,
-    val date: String = ""    // e.g. "03/04/2025 20:15"
-)
+    val diseaseName: String,
+    val accuracy: String,
+    val date: String,
+    val biologicalTreatment: List<String>,
+    val chemicalTreatment: List<String>,
+    val prevention: List<String>,
+    val imageUri: String?,
+    val treatment: String? = null
+) : Serializable
+
+

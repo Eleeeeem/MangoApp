@@ -1,23 +1,30 @@
 package com.example.mangocam
 
+import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
+import android.graphics.Color
 import android.os.Bundle
-import android.view.*
-import android.widget.Button
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.example.mangocam.model.Farm
-import com.example.mangocam.utils.Constant
 import com.example.mangoo.DiseaseHistory
 import com.example.mangoo.HistoryAdapter
-import com.google.firebase.database.*
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -29,18 +36,23 @@ class ProfileFragment : Fragment() {
     private lateinit var tvCrops: TextView
     private lateinit var tvJoinedDate: TextView
     private lateinit var tvContact: TextView
-    private lateinit var btnLogout: Button
+    private lateinit var btnLogout: View
     private lateinit var profileImage: ImageView
 
-    private lateinit var dbRef: DatabaseReference
+    private lateinit var firestore: FirebaseFirestore
+    private lateinit var auth: FirebaseAuth
+    private val uiScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
     override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?,
+        inflater: LayoutInflater,
+        container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
         val view = inflater.inflate(R.layout.fragment_profile, container, false)
 
-        // Bind views
+        firestore = FirebaseFirestore.getInstance()
+        auth = FirebaseAuth.getInstance()
+
         profileImage = view.findViewById(R.id.profileImage)
         tvFullname = view.findViewById(R.id.tvFullname)
         tvEmail = view.findViewById(R.id.tvEmail)
@@ -50,115 +62,77 @@ class ProfileFragment : Fragment() {
         tvContact = view.findViewById(R.id.tvContact)
         btnLogout = view.findViewById(R.id.btnLogout)
 
-        dbRef = FirebaseDatabase.getInstance().getReference("users")
-
-        // ✅ Get userId from SharedPreferences
-        val sharedPref = requireActivity().getSharedPreferences("UserSession", Context.MODE_PRIVATE)
-        val userId = sharedPref.getString("userId", null)
-
-        if (userId != null) {
-            // 1. Show cached data instantly
-            loadUserProfileFromCache()
-
-            // 2. Then refresh from Firebase (background update)
-            loadUserProfileFromFirebase(userId)
+        val user = auth.currentUser
+        if (user != null) {
+            loadUserProfile(user.uid)
         } else {
-            Toast.makeText(requireContext(), "No user found, please log in again", Toast.LENGTH_SHORT).show()
-            startActivity(Intent(requireContext(), LoginActivity::class.java))
-            requireActivity().finish()
-        }
-
-        btnLogout.setOnClickListener {
             logoutUser()
         }
 
-        // ✅ Load saved history
-        loadHistory(view)
-
-        return view
-    }
-
-    // 🔹 Load cached profile details (instant)
-    private fun loadUserProfileFromCache() {
-        val sharedPref = requireActivity().getSharedPreferences("UserSession", Context.MODE_PRIVATE)
-        val farmPref = requireActivity().getSharedPreferences(Constant.SHARED_PREF_FARM, Context.MODE_PRIVATE)
-
-
-        val farmJson = farmPref.getString(Constant.SHARED_PREF_FARM, null)
-        val farms: List<Farm> = if (farmJson != null) {
-            val type = object : TypeToken<List<Farm>>() {}.type
-            Gson().fromJson(farmJson, type)
-        } else {
-            emptyList()
+        // ✅ Show confirmation dialog before logging out
+        btnLogout.setOnClickListener {
+            requireContext().showLogoutDialog {
+                logoutUser()
+            }
         }
 
-        val totalTreeCount = farms.sumOf { it.trees.size }
+        loadHistory(view)
+        return view
+    }
+    private fun loadLocalUserData() {
+        val prefs = requireActivity().getSharedPreferences("UserSession", Context.MODE_PRIVATE)
 
+        tvFullname.text = prefs.getString("name", "Unknown")
+        tvEmail.text = prefs.getString("email", "N/A")
+        tvFarmLocation.text = prefs.getString("address", "Not set")
+        tvContact.text = prefs.getString("contact", "N/A")
+        tvJoinedDate.text = "Joined: ${prefs.getString("dateJoined", "Unknown")}"
 
-        tvFullname.text = sharedPref.getString("name", "Unknown")
-        tvEmail.text = sharedPref.getString("email", "No email")
-        tvFarmLocation.text = sharedPref.getString("address", "No address")
-        tvCrops.text = "Mango Trees: ${totalTreeCount}"
-        tvJoinedDate.text = sharedPref.getString("joinedDate", "Joined: 2025") // fallback
-        tvContact.text = sharedPref.getString("contact", "No contact")
+        val mangoTrees = prefs.getString("mangoTrees", null)?.toLongOrNull() ?: 0
+        tvCrops.text = "Mango Trees: $mangoTrees"
     }
 
-    // 🔹 Sync with Firebase and update cache
-    private fun loadUserProfileFromFirebase(userId: String) {
-        dbRef.child(userId).addListenerForSingleValueEvent(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                val user = snapshot.getValue(HelperClass::class.java)
-                if (user != null) {
 
-                    val inputFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-                    val outputFormat = SimpleDateFormat("dd- MMM-yyyy", Locale.getDefault())
+    private fun loadUserProfile(userId: String) {
+        firestore.collection("users").document(userId).get()
+            .addOnSuccessListener { doc ->
+                if (!isAdded) return@addOnSuccessListener
+                if (doc.exists()) {
+                    tvFullname.text = doc.getString("name") ?: "Unknown"
+                    tvEmail.text = doc.getString("email") ?: "N/A"
+                    tvFarmLocation.text = doc.getString("address") ?: "Not set"
+                    tvContact.text = doc.getString("contact") ?: "N/A"
+                    tvCrops.text = "Mango Trees: ${doc.getLong("mangoTrees") ?: 0}"
 
-                    val dateStr = user.dateJoined
-
-                    if(dateStr == null)
-                    {
-                        tvJoinedDate.text = "Joined: Unknown"
-                    }else
-                    {
-                        val parsedDate = inputFormat.parse(dateStr)
-                        val formattedDate = parsedDate?.let { outputFormat.format(it) } ?: "Unknown"
-                        tvJoinedDate.text = "Joined: ${formattedDate}"
+                    val dateJoinedValue = doc.get("dateJoined")
+                    val formattedDate = when (dateJoinedValue) {
+                        is com.google.firebase.Timestamp -> {
+                            val date = dateJoinedValue.toDate()
+                            val sdf = SimpleDateFormat("MMMM dd, yyyy", Locale.getDefault())
+                            sdf.format(date)
+                        }
+                        is String -> dateJoinedValue
+                        else -> "Unknown"
                     }
-
-                    tvFullname.text = user.name
-                    tvEmail.text = user.email
-                    tvFarmLocation.text = user.address
-
-                    tvContact.text = user.contact
-
-                    // update cache
-                    val sharedPref = requireActivity().getSharedPreferences("UserSession", Context.MODE_PRIVATE)
-                    sharedPref.edit()
-                        .putString("name", user.name)
-                        .putString("email", user.email)
-                        .putString("address", user.address)
-                        .putString("mangoTrees", user.mangoTrees.toString())
-                        .putString("contact", user.contact)
-                        .apply()
+                    tvJoinedDate.text = "Joined: $formattedDate"
+                } else {
+                    Toast.makeText(requireContext(), "User data not found", Toast.LENGTH_SHORT).show()
                 }
             }
-
-            override fun onCancelled(error: DatabaseError) {
-                Toast.makeText(requireContext(), "Failed to refresh profile", Toast.LENGTH_SHORT).show()
+            .addOnFailureListener {
+                if (isAdded) {
+                    Toast.makeText(requireContext(), "Failed to load profile", Toast.LENGTH_SHORT).show()
+                }
             }
-        })
     }
 
-    // 🔹 History loader
     private fun loadHistory(rootView: View) {
         val prefs = requireContext().getSharedPreferences("disease_history", Context.MODE_PRIVATE)
         val gson = Gson()
         val type = object : TypeToken<List<DiseaseHistory>>() {}.type
         val json = prefs.getString("history", null)
-
-        val historyList: List<DiseaseHistory> = if (json != null) {
-            gson.fromJson(json, type)
-        } else emptyList()
+        val historyList: List<DiseaseHistory> =
+            if (json != null) gson.fromJson(json, type) else emptyList()
 
         val recyclerView = rootView.findViewById<RecyclerView>(R.id.recyclerHistory)
         val tvNoHistory = rootView.findViewById<TextView>(R.id.tvNoHistory)
@@ -174,14 +148,38 @@ class ProfileFragment : Fragment() {
         }
     }
 
-    // 🔹 Logout clears everything
+    // ✅ Simplified, consistent with AddFarmDialog
+    fun Context.showLogoutDialog(onConfirm: () -> Unit) {
+        val dialog = MaterialAlertDialogBuilder(this, R.style.MangoDialogStyle)
+            .setTitle("🚪 Logout")
+            .setMessage("Are you sure you want to log out of your account?")
+            .setPositiveButton("Logout") { _, _ ->
+                onConfirm()
+            }
+            .setNegativeButton("Cancel", null)
+            .create()
+
+        dialog.show()
+        dialog.findViewById<TextView>(androidx.appcompat.R.id.alertTitle)?.setTextColor(Color.BLACK)
+        dialog.findViewById<TextView>(android.R.id.message)?.setTextColor(Color.BLACK)
+
+        // ✅ Force button text to black
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(Color.BLACK)
+        dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(Color.BLACK)
+    }
+
     private fun logoutUser() {
+        auth.signOut()
         val sharedPref = requireActivity().getSharedPreferences("UserSession", Context.MODE_PRIVATE)
         sharedPref.edit().clear().apply()
 
-        Toast.makeText(requireContext(), "Logged out!", Toast.LENGTH_SHORT).show()
         val intent = Intent(requireContext(), LoginActivity::class.java)
         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         startActivity(intent)
+        requireActivity().finish()
+    }
+    override fun onDestroy() {
+        super.onDestroy()
+        uiScope.cancel()
     }
 }
