@@ -1,5 +1,6 @@
 package com.example.mangocam.model
 
+import com.example.mangoo.PlantResponse
 import java.io.Serializable
 
 data class Farm(
@@ -12,11 +13,12 @@ data class Farm(
 data class Tree(
     var name: String = "",
     val id: Int = 0,
+    val baseId : String? = null,
     var firstSprayDate: String? = null,
     val plantedDate: String = "",
     var status: String = "",
     val iconRes: Int = 0,
-    var data: String? = null,
+    var data: MutableList<PlantResponse>? = mutableListOf(),
     val history: MutableList<TreeHistory> = mutableListOf()
 ) : Serializable
 

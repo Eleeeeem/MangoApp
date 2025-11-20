@@ -12,8 +12,11 @@ import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.mangocam.model.Tree
+import com.example.mangocam.utils.Constant
 import com.example.mangoo.DiseaseHistory
 import com.example.mangoo.HistoryAdapter
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -25,6 +28,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -40,6 +45,7 @@ class ProfileFragment : Fragment() {
     private lateinit var profileImage: ImageView
 
     private lateinit var firestore: FirebaseFirestore
+    private var userId: String? = null
     private lateinit var auth: FirebaseAuth
     private val uiScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
@@ -51,6 +57,9 @@ class ProfileFragment : Fragment() {
         val view = inflater.inflate(R.layout.fragment_profile, container, false)
 
         firestore = FirebaseFirestore.getInstance()
+        val sharedPref = requireContext().getSharedPreferences(Constant.SHARED_PREF_USER, Context.MODE_PRIVATE)
+        userId = sharedPref.getString(Constant.SHARED_PREF_USER_DETAIL_USERID, null)
+
         auth = FirebaseAuth.getInstance()
 
         profileImage = view.findViewById(R.id.profileImage)
@@ -75,21 +84,41 @@ class ProfileFragment : Fragment() {
                 logoutUser()
             }
         }
+        lifecycleScope.launch {
+            loadHistory(view)
+            var trees = getAllTreesForUser(userId!!)
+            tvCrops.text = "Mango Trees: ${trees.size ?: 0}"
+        }
 
-        loadHistory(view)
         return view
     }
-    private fun loadLocalUserData() {
-        val prefs = requireActivity().getSharedPreferences("UserSession", Context.MODE_PRIVATE)
 
-        tvFullname.text = prefs.getString("name", "Unknown")
-        tvEmail.text = prefs.getString("email", "N/A")
-        tvFarmLocation.text = prefs.getString("address", "Not set")
-        tvContact.text = prefs.getString("contact", "N/A")
-        tvJoinedDate.text = "Joined: ${prefs.getString("dateJoined", "Unknown")}"
+    suspend fun getAllTreesForUser(userId: String): List<Tree> {
 
-        val mangoTrees = prefs.getString("mangoTrees", null)?.toLongOrNull() ?: 0
-        tvCrops.text = "Mango Trees: $mangoTrees"
+        val allTrees = mutableListOf<Tree>()
+
+        val farmsSnapshot = firestore.collection("users")
+            .document(userId)
+            .collection("farms")
+            .get()
+            .await()
+
+        for (farmDoc in farmsSnapshot.documents) {
+            val farmId = farmDoc.id
+
+            val treesSnapshot = firestore.collection("users")
+                .document(userId)
+                .collection("farms")
+                .document(farmId)
+                .collection("trees")
+                .get()
+                .await()
+
+            val trees = treesSnapshot.toObjects(Tree::class.java)
+            allTrees.addAll(trees)
+        }
+
+        return allTrees
     }
 
 
@@ -102,7 +131,6 @@ class ProfileFragment : Fragment() {
                     tvEmail.text = doc.getString("email") ?: "N/A"
                     tvFarmLocation.text = doc.getString("address") ?: "Not set"
                     tvContact.text = doc.getString("contact") ?: "N/A"
-                    tvCrops.text = "Mango Trees: ${doc.getLong("mangoTrees") ?: 0}"
 
                     val dateJoinedValue = doc.get("dateJoined")
                     val formattedDate = when (dateJoinedValue) {
@@ -126,13 +154,16 @@ class ProfileFragment : Fragment() {
             }
     }
 
-    private fun loadHistory(rootView: View) {
-        val prefs = requireContext().getSharedPreferences("disease_history", Context.MODE_PRIVATE)
-        val gson = Gson()
-        val type = object : TypeToken<List<DiseaseHistory>>() {}.type
-        val json = prefs.getString("history", null)
-        val historyList: List<DiseaseHistory> =
-            if (json != null) gson.fromJson(json, type) else emptyList()
+    private suspend fun loadHistory(rootView: View) {
+        val historyCollection = firestore.collection("users")
+            .document(userId!!)
+            .collection("history")
+
+        val snapshot = historyCollection.get().await()
+        val historyList = snapshot.documents.mapNotNull { doc ->
+            doc.toObject(DiseaseHistory::class.java)
+        }
+        historyList.sortedByDescending { it.date }
 
         val recyclerView = rootView.findViewById<RecyclerView>(R.id.recyclerHistory)
         val tvNoHistory = rootView.findViewById<TextView>(R.id.tvNoHistory)

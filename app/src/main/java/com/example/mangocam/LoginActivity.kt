@@ -6,6 +6,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import com.example.mangocam.utils.Constant
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 
@@ -71,7 +72,7 @@ class LoginActivity : AppCompatActivity() {
                     .addOnSuccessListener { doc ->
                         progressDialog.dismiss()
                         if (doc.exists()) {
-                            val sharedPref = getSharedPreferences("UserSession", Context.MODE_PRIVATE)
+                            val sharedPref = getSharedPreferences(Constant.SHARED_PREF_USER, Context.MODE_PRIVATE)
                             sharedPref.edit()
                                 .putString("userId", userId)
                                 .putString("name", doc.getString("name"))

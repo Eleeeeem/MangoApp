@@ -21,9 +21,10 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 
 class FarmAdapter(
-    private val farms: MutableList<Farm>,
+    private val farms: List<Farm>,
     private val onClick: (Farm) -> Unit,
-    private val onDelete: (Farm) -> Unit
+    private val onDelete: (Farm) -> Unit,
+    private val onRename: (Farm) -> Unit
 ) : RecyclerView.Adapter<FarmAdapter.FarmViewHolder>() {
 
     private val gson = Gson()
@@ -56,10 +57,7 @@ class FarmAdapter(
             itemView.setOnClickListener { onClick(farm) }
 
             renameButton.setOnClickListener {
-                val pos = bindingAdapterPosition
-                if (pos != RecyclerView.NO_POSITION) {
-                    showRenameDialog(itemView.context, farm, pos)
-                }
+                onRename(farm)
             }
 
             deleteButton.setOnClickListener {
@@ -114,56 +112,4 @@ class FarmAdapter(
     }
 
     override fun getItemCount(): Int = farms.size
-
-    // ---------------------- RENAME DIALOG ----------------------
-    private fun showRenameDialog(context: Context, farm: Farm, position: Int) {
-        val input = EditText(context).apply {
-            hint = "Enter new farm name"
-            setHintTextColor(Color.parseColor("#808080"))
-            setTextColor(Color.BLACK)
-            setText(farm.name)
-            setPadding(60, 50, 60, 50)
-        }
-
-        val dialog = MaterialAlertDialogBuilder(context, R.style.MangoDialogStyle)
-            .setTitle("✏️ Rename Farm")
-            .setMessage("Give your farm a new name:")
-            .setView(input)
-            .setPositiveButton("Save") { d, _ ->
-                val newName = input.text.toString().trim()
-                if (newName.isNotEmpty()) {
-                    farm.name = newName
-                    updateFarmInStorage(context, farm)
-                    notifyItemChanged(position)
-                    Toast.makeText(context, "Farm renamed to \"$newName\"", Toast.LENGTH_SHORT).show()
-                } else {
-                    Toast.makeText(context, "Name cannot be empty.", Toast.LENGTH_SHORT).show()
-                }
-                d.dismiss()
-            }
-            .setNegativeButton("Cancel") { d, _ -> d.dismiss() }
-            .create()
-
-        dialog.show()
-
-        dialog.apply {
-            findViewById<TextView>(androidx.appcompat.R.id.alertTitle)?.setTextColor(Color.BLACK)
-            findViewById<TextView>(android.R.id.message)?.setTextColor(Color.BLACK)
-            getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(Color.BLACK)
-            getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(Color.BLACK)
-        }
-    }
-
-    // ---------------------- UPDATE STORAGE ----------------------
-    private fun updateFarmInStorage(context: Context, updatedFarm: Farm) {
-        val sharedPref = context.getSharedPreferences(Constant.SHARED_PREF_FARM, Context.MODE_PRIVATE)
-        val json = sharedPref.getString(Constant.SHARED_PREF_FARM, null)
-        val type = object : TypeToken<MutableList<Farm>>() {}.type
-        val farmList: MutableList<Farm> = gson.fromJson(json, type) ?: mutableListOf()
-
-        val index = farmList.indexOfFirst { it.id == updatedFarm.id }
-        if (index != -1) farmList[index].name = updatedFarm.name
-
-        sharedPref.edit().putString(Constant.SHARED_PREF_FARM, gson.toJson(farmList)).apply()
-    }
 }

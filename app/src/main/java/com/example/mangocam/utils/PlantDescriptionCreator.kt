@@ -29,7 +29,8 @@ object PlantDescriptionCreator {
             date = SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.getDefault()).format(Date()),
             biologicalTreatment = bio,
             chemicalTreatment = chem,
-            prevention = prev
+            prevention = prev,
+            id = "0",
         )
     }
 
@@ -41,7 +42,8 @@ object PlantDescriptionCreator {
             date = SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.getDefault()).format(Date()),
             biologicalTreatment = emptyList(),
             chemicalTreatment = emptyList(),
-            prevention = emptyList()
+            prevention = emptyList(),
+            id = "0",
         )
     }
 }

@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
+import android.text.InputType
 import android.util.Log
 import android.view.View
 import android.widget.EditText
@@ -14,8 +15,10 @@ import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContentProviderCompat.requireContext
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.mangocam.model.Farm
@@ -24,34 +27,45 @@ import com.example.mangocam.ui.logs.TreeAdapter
 import com.example.mangocam.utils.Constant
 import com.example.mangoo.PlantResponse
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.firebase.firestore.FirebaseFirestore
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.*
 
 class FarmActivity : AppCompatActivity() {
 
+    private lateinit var firestore: FirebaseFirestore
     private val gson = Gson()
     private lateinit var rcTrees: RecyclerView
     private lateinit var adapter: TreeAdapter
     private lateinit var titleTv: TextView
     private lateinit var selectedTree: Tree
 
-    private var farm: Farm? = null
+    private lateinit var farm: Farm
     private var trees: MutableList<Tree> = mutableListOf()
 
     // Debounce flags to prevent multiple dialogs
     private var isDeletingTree = false
     private var isAddingTree = false
     private var isRemovingFarm = false
+    private var userId: String? = null
+    private lateinit var loadingOverlay: View
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContentView(R.layout.activity_farm)
 
+        firestore = FirebaseFirestore.getInstance()
+        val sharedPref = this.getSharedPreferences(Constant.SHARED_PREF_USER, Context.MODE_PRIVATE)
+        userId = sharedPref.getString(Constant.SHARED_PREF_USER_DETAIL_USERID, null)
+
         rcTrees = findViewById(R.id.rcTrees)
         titleTv = findViewById(R.id.titleTv)
+        loadingOverlay = findViewById(R.id.loadingOverlay)
 
         getIntentData()
         setUpTrees()
@@ -71,13 +85,22 @@ class FarmActivity : AppCompatActivity() {
         if (result.resultCode == Activity.RESULT_OK) {
             val data = result.data
             val plantDetail = data?.getSerializableExtra("plantDetail") as? PlantResponse
-            selectedTree.data = gson.toJson(plantDetail)
-            updateTreeData(selectedTree)
+
+            if(selectedTree.data == null)
+            {
+                selectedTree.data =  mutableListOf()
+            }
+
+            selectedTree.data!!.add(plantDetail!!)
+                //gson.toJson(plantDetail)
+            lifecycleScope.launch {
+                updateTreeData(selectedTree)
+            }
         }
     }
 
-    private fun getIntentData() {
-        farm = intent.getSerializableExtra("farm") as? Farm
+    private fun   getIntentData() {
+        farm = intent.getSerializableExtra("farm") as Farm
         trees = farm?.trees?.toMutableList() ?: mutableListOf()
         Log.d("FarmActivity", "Loaded farm: ${farm?.name}")
     }
@@ -102,45 +125,101 @@ class FarmActivity : AppCompatActivity() {
             },
             onDeleteClick = { tree ->
                 if (!isDeletingTree) showDeleteTreeDialog(tree)
+            },
+            onRenameClick = { tree ->
+                showRenameDialog(tree)
             }
         )
         rcTrees.adapter = adapter
     }
 
-    private fun updateTreeData(updatedTree: Tree) {
-        val sharedPref = getSharedPreferences(Constant.SHARED_PREF_FARM, Context.MODE_PRIVATE)
-        val type = object : TypeToken<MutableList<Farm>>() {}.type
-        val farmList: MutableList<Farm> =
-            gson.fromJson(sharedPref.getString(Constant.SHARED_PREF_FARM, null), type) ?: mutableListOf()
+    private fun showRenameDialog(tree: Tree) {
+        val input = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_TEXT
+            setText(tree.name)
+            setTextColor(Color.BLACK)
+            setHintTextColor(Color.GRAY)   // optional, for hint
+        }
 
-        val targetFarm = farmList.find { it.id == farm?.id }
-        val targetTree = targetFarm?.trees?.find { it.id == updatedTree.id }
-        targetTree?.data = updatedTree.data
+        val dialog = MaterialAlertDialogBuilder(this, R.style.MangoDialogStyle)
+            .setTitle("✏️ Rename Tree")
+            .setView(input)
+            .setPositiveButton("Save") { d, _ ->
+                val newName = input.text.toString().trim()
+                if (newName.isNotEmpty()) {
+                    tree.name = newName
+                    lifecycleScope.launch {
+                        showLoading()
 
-        sharedPref.edit().putString(Constant.SHARED_PREF_FARM, gson.toJson(farmList)).apply()
-        setUpTrees()
+                        firestore.collection("users")
+                            .document(userId!!)
+                            .collection("farms")
+                            .document(farm.id)
+                            .collection("trees")
+                            .document(tree.baseId!!)
+                            .update("name", newName)
+                            .await()
+
+                        adapter.notifyDataSetChanged()
+                        hideLoading()
+
+                        Toast.makeText(this@FarmActivity, "Renamed to \"$newName\"", Toast.LENGTH_SHORT).show()
+                    }
+                }
+                d.dismiss()
+            }
+            .setNegativeButton("Cancel") { d, _ -> d.dismiss() }
+            .create()
+
+        dialog.show()
+
+        // ✅ Apply black text colors for title and buttons
+        dialog.apply {
+            findViewById<TextView>(androidx.appcompat.R.id.alertTitle)?.setTextColor(Color.BLACK)
+            getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(Color.BLACK)
+            getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(Color.BLACK)
+        }
+    }
+
+    private suspend fun updateTreeData(updatedTree: Tree) {
+        showLoading()
+        firestore.collection("users")
+            .document(userId!!)
+            .collection("farms")
+            .document(farm.id)
+            .collection("trees")
+            .document(updatedTree.baseId!!)
+            .update("data", updatedTree.data)
+            .await()
+
+        adapter.notifyDataSetChanged()
+
+        hideLoading()
     }
 
     /**
      * 🗑️ Delete Tree Confirmation Dialog
      */
     private fun showDeleteTreeDialog(tree: Tree) {
-        android.util.Log.d("FarmActivity", "Activity delete dialog triggered for ${tree.name}")
 
         val dialog = MaterialAlertDialogBuilder(this, R.style.MangoDialogStyle)
             .setTitle("🗑️ Remove Tree")
             .setMessage("Are you sure you want to remove \"${tree.name}\"? This action cannot be undone.")
             .setPositiveButton("Yes, Remove") { dialogInterface, _ ->
-                deleteTree(tree)
-                Toast.makeText(this, "\"${tree.name}\" removed.", Toast.LENGTH_SHORT).show()
-                dialogInterface.dismiss()
+                lifecycleScope.launch {
+                    deleteTree(tree)
+                    Toast.makeText(
+                        this@FarmActivity,
+                        "\"${tree.name}\" removed.",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    dialogInterface.dismiss()
+                }
             }
             .setNegativeButton("Cancel") { dialogInterface, _ -> dialogInterface.dismiss() }
-            .create()  // create first
+            .create()
 
-        dialog.show() // then show
-
-        // ✅ Apply black text colors
+        dialog.show()
         dialog.apply {
             findViewById<TextView>(androidx.appcompat.R.id.alertTitle)?.setTextColor(Color.BLACK)
             findViewById<TextView>(android.R.id.message)?.setTextColor(Color.BLACK)
@@ -151,18 +230,20 @@ class FarmActivity : AppCompatActivity() {
 
 
 
-    private fun deleteTree(tree: Tree) {
-        val sharedPref = getSharedPreferences(Constant.SHARED_PREF_FARM, Context.MODE_PRIVATE)
-        val type = object : TypeToken<MutableList<Farm>>() {}.type
-        val farmList: MutableList<Farm> =
-            gson.fromJson(sharedPref.getString(Constant.SHARED_PREF_FARM, null), type) ?: mutableListOf()
+    private suspend fun deleteTree(tree: Tree) {
+        loadingOverlay.visibility = View.VISIBLE
+        val treeDocRef = firestore.collection("users")
+            .document(userId!!)
+            .collection("farms")
+            .document(farm.id)
+            .collection("trees")
+            .document(tree.baseId!!)
 
-        val targetFarm = farmList.find { it.id == farm?.id }
-        targetFarm?.trees?.removeIf { it.id == tree.id }
+        treeDocRef.delete().await()
+        trees.removeIf { it.baseId == tree.baseId }
 
-        sharedPref.edit().putString(Constant.SHARED_PREF_FARM, gson.toJson(farmList)).apply()
-        trees.removeIf { it.id == tree.id }
         adapter.notifyDataSetChanged()
+        loadingOverlay.visibility = View.GONE
     }
 
     /**
@@ -193,31 +274,46 @@ class FarmActivity : AppCompatActivity() {
                     return@setPositiveButton
                 }
 
-                val sharedPref = getSharedPreferences(Constant.SHARED_PREF_FARM, Context.MODE_PRIVATE)
-                val type = object : TypeToken<MutableList<Farm>>() {}.type
-                val farmList: MutableList<Farm> =
-                    gson.fromJson(sharedPref.getString(Constant.SHARED_PREF_FARM, null), type) ?: mutableListOf()
-
-                val targetFarm = farmList.find { it.id == farm?.id }
                 val currentDate = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
-                val startId = (targetFarm?.trees?.maxOfOrNull { it.id } ?: 0) + 1
+                val startId = (trees.maxOfOrNull { it.id } ?: 0) + 1
 
                 val newTrees = (0 until count).map { index ->
                     val newId = startId + index
                     Tree(
                         name = "Tree $newId",
                         id = newId,
+                        baseId = UUID.randomUUID().toString(),
                         plantedDate = currentDate,
                         status = "Newly Planted",
-                        data = null
+                        data = mutableListOf()
                     )
                 }
 
-                targetFarm?.trees?.addAll(newTrees)
-                sharedPref.edit().putString(Constant.SHARED_PREF_FARM, gson.toJson(farmList)).apply()
+                lifecycleScope.launch {
+                    try {
+                        val batch = firestore.batch()
+                        val treesCollection = firestore.collection("users")
+                            .document(userId!!)
+                            .collection("farms")
+                            .document(farm.id)
+                            .collection("trees")
 
-                adapter.addTrees(newTrees)
-                Toast.makeText(this, "${newTrees.size} trees added!", Toast.LENGTH_SHORT).show()
+                        for (tree in newTrees) {
+                            val treeDoc = treesCollection.document(tree.baseId!!)
+                            batch.set(treeDoc, tree)
+                        }
+
+                        batch.commit().await() // Wait until all trees are saved
+                        adapter.addTrees(newTrees) // Update UI after successful commit
+                        Toast.makeText(this@FarmActivity, "Trees added successfully", Toast.LENGTH_SHORT).show()
+                    } catch (e: Exception) {
+                        Toast.makeText(this@FarmActivity, "Failed to add trees: ${e.message}", Toast.LENGTH_LONG).show()
+                    } finally {
+                        isAddingTree = false
+                        d.dismiss()
+                    }
+                }
+
                 isAddingTree = false
                 d.dismiss()
             }
@@ -237,42 +333,21 @@ class FarmActivity : AppCompatActivity() {
             getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(Color.BLACK)
         }
     }
-    /**
-     * 🏡 Remove Farm Confirmation (Modern, Single Dialog)
-     */
-    fun showDeleteFarmDialog() {
-        farm?.let { targetFarm ->
-            android.util.Log.d("FarmActivity", "Activity delete dialog triggered for farm: ${targetFarm.name}")
 
-            MaterialAlertDialogBuilder(this, R.style.MangoDialogStyle)
-                .setTitle("🏡 Remove Farm")
-                .setMessage("Are you sure you want to permanently delete \"${targetFarm.name}\" and all its trees?")
-                .setPositiveButton("Yes, Remove") { dialog, _ ->
-                    removeFarmConfirmed(targetFarm)
-                    dialog.dismiss()
-                }
-                .setNegativeButton("Cancel") { dialog, _ ->
-                    Toast.makeText(this, "Farm removal canceled", Toast.LENGTH_SHORT).show()
-                    dialog.dismiss()
-                }
-                .show()
-        }
+    private fun hideLoading()
+    {
+        loadingOverlay.visibility = View.GONE
     }
 
-    private fun removeFarmConfirmed(targetFarm: Farm) {
-        val sharedPref = getSharedPreferences(Constant.SHARED_PREF_FARM, Context.MODE_PRIVATE)
-        val type = object : TypeToken<MutableList<Farm>>() {}.type
-        val farmList: MutableList<Farm> =
-            Gson().fromJson(sharedPref.getString(Constant.SHARED_PREF_FARM, null), type) ?: mutableListOf()
+    private fun showLoading()
+    {
+        loadingOverlay.visibility = View.VISIBLE
+    }
 
-        farmList.removeIf { it.id == targetFarm.id }
-        sharedPref.edit().putString(Constant.SHARED_PREF_FARM, Gson().toJson(farmList)).apply()
-
-        Toast.makeText(this, "Farm \"${targetFarm.name}\" removed!", Toast.LENGTH_SHORT).show()
-        android.util.Log.d("FarmActivity", "Farm ${targetFarm.name} deleted successfully")
-
+    override fun onBackPressed() {
         setResult(Activity.RESULT_OK)
-        finish()
+        super.onBackPressed()
     }
+
 
 }

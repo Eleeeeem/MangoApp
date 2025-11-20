@@ -12,6 +12,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.mangocam.adapter.HistoryEntry
 import com.example.mangocam.adapter.TreeHistoryAdapter
+import com.example.mangocam.model.Tree
 import com.example.mangoo.DiseaseSuggestion
 import com.example.mangoo.Details
 import com.example.mangoo.PlantResponse
@@ -27,7 +28,7 @@ class TreeHistoryActivity : AppCompatActivity() {
     private lateinit var rcHistory: RecyclerView
     private lateinit var adapter: TreeHistoryAdapter
     private lateinit var healthyTagTv: TextView
-    private var treeId: String = "unknown"
+    private var tree: Tree? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -37,8 +38,8 @@ class TreeHistoryActivity : AppCompatActivity() {
         rcHistory = findViewById(R.id.diseaseRc)
         healthyTagTv = findViewById(R.id.healthyTagTv)
 
-        treeId = intent.getStringExtra("treeId") ?: "unknown"
-        loadAndDisplayHistory(treeId)
+        tree = intent.getSerializableExtra("tree") as? Tree
+        loadAndDisplayHistory(tree)
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
@@ -47,19 +48,8 @@ class TreeHistoryActivity : AppCompatActivity() {
         }
     }
 
-    private fun loadAndDisplayHistory(treeId: String) {
-        val sharedPref = getSharedPreferences("TreeHistory", MODE_PRIVATE)
-        val key = "history_$treeId"
-        val json = sharedPref.getString(key, "[]")
-        val type = object : TypeToken<List<PlantResponse>>() {}.type
-        val treeList: List<PlantResponse> = try {
-            gson.fromJson(json, type) ?: emptyList()
-        } catch (e: Exception) {
-            Log.e("TREE_HISTORY_DEBUG", "Failed to parse history JSON: ${e.message}")
-            emptyList()
-        }
-
-        if (treeList.isEmpty()) {
+    private fun loadAndDisplayHistory(tree : Tree?) {
+        if (tree == null) {
             rcHistory.visibility = View.GONE
             healthyTagTv.visibility = View.VISIBLE
             healthyTagTv.text = "No scan history found 🌿"
@@ -71,7 +61,7 @@ class TreeHistoryActivity : AppCompatActivity() {
         val yesterday = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -1) }
         val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
 
-        for (treeDetails in treeList) {
+        for (treeDetails in tree.data!!) {
             try {
                 val suggestions = treeDetails.result?.disease?.suggestions
 

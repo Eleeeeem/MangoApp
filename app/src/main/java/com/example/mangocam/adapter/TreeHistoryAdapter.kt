@@ -99,9 +99,9 @@ class TreeHistoryAdapter(
             val accuracy = String.format("%.2f", (suggestion.probability ?: 0.0) * 100)
 
             // 👉 TREATMENT STRING BUILDER
-            val bio = suggestion.details.treatment.biological ?: emptyList()
-            val chem = suggestion.details.treatment.chemical ?: emptyList()
-            val prev = suggestion.details.treatment.prevention ?: emptyList()
+            val bio = suggestion.details?.treatment?.biological ?: emptyList()
+            val chem = suggestion.details?.treatment?.chemical ?: emptyList()
+            val prev = suggestion.details?.treatment?.prevention ?: emptyList()
 
             val sb = StringBuilder()
 

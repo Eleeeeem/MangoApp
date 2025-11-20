@@ -14,10 +14,15 @@ import android.widget.*
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.FileProvider
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
+import com.example.mangocam.utils.Constant
 import com.example.mangocam.utils.PlantDescriptionCreator
 import com.example.mangoo.*
+import com.google.firebase.firestore.FirebaseFirestore
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -28,6 +33,7 @@ import java.util.*
 
 class DiseaseFragment : Fragment() {
 
+    private lateinit var firestore: FirebaseFirestore
     private var listener: OnDiseaseDataListener? = null
     private lateinit var imageView: ImageView
     private lateinit var textViewResult: TextView
@@ -37,6 +43,7 @@ class DiseaseFragment : Fragment() {
 
     // ✅ Store image URI for both camera and gallery
     private var currentImageUri: Uri? = null
+    private var userId: String? = null
 
     private val mangoScientificNames = listOf(
         "Mangifera indica L.",
@@ -54,6 +61,11 @@ class DiseaseFragment : Fragment() {
         savedInstanceState: Bundle?
     ): View {
         val view = inflater.inflate(R.layout.disease_fragment, container, false)
+
+        firestore = FirebaseFirestore.getInstance()
+        val sharedPref = requireContext().getSharedPreferences(Constant.SHARED_PREF_USER, Context.MODE_PRIVATE)
+        userId = sharedPref.getString(Constant.SHARED_PREF_USER_DETAIL_USERID, null)
+
         initializeViews(view)
         return view
     }
@@ -287,7 +299,12 @@ class DiseaseFragment : Fragment() {
             textViewResult.setTextColor(Color.RED)
             textViewResult.text = "🦠 Disease detected: ${history.diseaseName}"
         }
-        saveToHistory(history)
+        lifecycleScope.launch {
+            saveToHistory(history)
+        }
+
+
+
     }
 
     private fun showHealthyMessage(plantName: String) {
@@ -296,22 +313,21 @@ class DiseaseFragment : Fragment() {
             textViewResult.setTextColor(Color.parseColor("#2E7D32"))
             textViewResult.text = "✅ Mango looks healthy!"
         }
-        saveToHistory(history)
+        lifecycleScope.launch {
+            saveToHistory(history)
+        }
     }
 
     // ------------------------------ SAVE HISTORY --------------------------------------
-    private fun saveToHistory(newEntry: DiseaseHistory) {
-        val finalEntry = newEntry.copy(
-            imageUri = currentImageUri?.toString()
-        )
-        val prefs = requireContext().getSharedPreferences("disease_history", Context.MODE_PRIVATE)
-        val gson = Gson()
-        val type = object : TypeToken<MutableList<DiseaseHistory>>() {}.type
-        val list: MutableList<DiseaseHistory> =
-            gson.fromJson(prefs.getString("history", null), type) ?: mutableListOf()
-        list.add(0, finalEntry)
-        prefs.edit().putString("history", gson.toJson(list)).apply()
-        Log.d("DiseaseFragment", "✅ Saved history: ${gson.toJson(list)}")
+    private suspend fun saveToHistory(newEntry: DiseaseHistory) {
+        newEntry.id = UUID.randomUUID().toString()
+
+        val historyCollection = firestore.collection("users")
+            .document(userId!!)
+            .collection("history") // flat collection, no nesting
+
+        historyCollection.document(newEntry.id).set(newEntry).await()
+
     }
 
     // ------------------------------ UTIL ----------------------------------------------

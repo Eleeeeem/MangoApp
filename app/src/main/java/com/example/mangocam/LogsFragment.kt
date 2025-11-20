@@ -26,16 +26,19 @@ import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.mangocam.adapter.FarmAdapter
 import com.example.mangocam.model.Farm
+import com.example.mangocam.model.Tree
 import com.example.mangocam.utils.Constant
-import com.example.mangocam.utils.SharedPrefUtil
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import com.prolificinteractive.materialcalendarview.*
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.time.LocalDate
 import java.util.*
@@ -43,6 +46,7 @@ import kotlin.coroutines.resume
 
 class LogsFragment : Fragment() {
 
+    private lateinit var firestore: FirebaseFirestore
     private lateinit var calendarView: MaterialCalendarView
     private lateinit var tvHarvestDate: TextView
     private lateinit var tvNextSprayDate: TextView
@@ -54,8 +58,11 @@ class LogsFragment : Fragment() {
     private lateinit var farmNameTv: TextView
     private lateinit var addSprayButton: MaterialButton
     private lateinit var logView: LinearLayout
-
+    private lateinit var loadingView: LinearLayout
+    private var userId: String? = null
     private var selectedCalendarDay: CalendarDay? = null
+
+    private var farms: MutableList<Farm> = mutableListOf()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -63,6 +70,11 @@ class LogsFragment : Fragment() {
         savedInstanceState: Bundle?,
     ): View {
         setHasOptionsMenu(true)
+
+        firestore = FirebaseFirestore.getInstance()
+        val sharedPref = requireContext().getSharedPreferences(Constant.SHARED_PREF_USER, Context.MODE_PRIVATE)
+        userId = sharedPref.getString(Constant.SHARED_PREF_USER_DETAIL_USERID, null)
+
         val view = inflater.inflate(R.layout.logs_fragment, container, false)
 
         calendarView = view.findViewById(R.id.calendarView)
@@ -74,17 +86,20 @@ class LogsFragment : Fragment() {
         noSprayTv = view.findViewById(R.id.noSprayTv)
         logView = view.findViewById(R.id.logView)
         farmNameTv = view.findViewById(R.id.farmNameTv)
+        loadingView = view.findViewById(R.id.loadingView)
 
         calendarView.setOnDateChangedListener { _, date, _ ->
             updateDetailView(date)
         }
 
         addTreeButton.setOnClickListener { addFarm() }
-        addSprayButton.setOnClickListener { selectFarmForSpray() }
+        addSprayButton.setOnClickListener {
+            lifecycleScope.launch {
+                selectFarmForSpray()
+            }
+        }
 
-        addCalendarMarks()
         setupFarms()
-        checkHarvestNotifications()
 
         return view
     }
@@ -92,9 +107,6 @@ class LogsFragment : Fragment() {
     // Show farms for the selected date
     private fun updateDetailView(selectedCalendarDate: CalendarDay) {
         selectedCalendarDay = selectedCalendarDate
-
-        val sharedPref = requireContext().getSharedPreferences(Constant.SHARED_PREF_FARM, Context.MODE_PRIVATE)
-        val farms = SharedPrefUtil.getFarms(sharedPref)
 
         val selectedDate = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             LocalDate.of(selectedCalendarDate.year, selectedCalendarDate.month + 1, selectedCalendarDate.day)
@@ -116,7 +128,7 @@ class LogsFragment : Fragment() {
             noSprayTv.visibility = View.VISIBLE
             addSprayButton.visibility = View.VISIBLE
             logView.visibility = View.GONE
-            addCalendarMarks()
+            addCalendarMarks(farms)
             return
         }
 
@@ -137,17 +149,14 @@ class LogsFragment : Fragment() {
 
 
     // 🌾 Selecting farms for spray (only farms WITH trees)
-    private fun selectFarmForSpray() {
+    private suspend fun selectFarmForSpray() {
         val date = selectedCalendarDay ?: run {
             Toast.makeText(requireContext(), "Select a date first", Toast.LENGTH_SHORT).show()
             return
         }
 
-        val sharedPref = requireContext().getSharedPreferences(Constant.SHARED_PREF_FARM, Context.MODE_PRIVATE)
-        val farmList = SharedPrefUtil.getFarms(sharedPref)
-
-        // ✅ Only farms that have trees and no existing spray date
-        val eligibleFarms = farmList.filter { it.sprayDate == null && it.trees.isNotEmpty() }
+        val farms = getFirebaseFarms(userId!!)
+        val eligibleFarms = farms.filter { it.sprayDate == null && it.trees.isNotEmpty() }
 
         if (eligibleFarms.isEmpty()) {
             Toast.makeText(requireContext(), "No farms with trees available for spraying", Toast.LENGTH_SHORT).show()
@@ -173,13 +182,26 @@ class LogsFragment : Fragment() {
                 }
                 val formattedDate = formatter.format(calendar.time)
 
-                for (farm in farmList) {
+                val batch = firestore.batch()
+                for (farm in farms) {
                     if (farm.name in selectedFarmNames) {
                         farm.sprayDate = formattedDate
+
+                        val farmDoc = firestore.collection("users")
+                            .document(userId!!)
+                            .collection("farms")
+                            .document(farm.id)
+
+                        batch.update(farmDoc, mapOf(
+                            "sprayDate" to farm.sprayDate
+                        ))
                     }
                 }
 
-                SharedPrefUtil.setFarms(sharedPref, farmList)
+                lifecycleScope.launch {
+                    batch.commit().await()
+                }
+
                 updateDetailView(date)
                 setupFarms()
                 dialog.dismiss()
@@ -189,15 +211,10 @@ class LogsFragment : Fragment() {
 
     }
 
-
-
-    // Add decorators for the calendar using saved spray dates
-    private fun addCalendarMarks() {
+    private fun addCalendarMarks(farms : List<Farm>) {
         calendarView.removeDecorators()
-        val sharedPref = requireContext().getSharedPreferences(Constant.SHARED_PREF_FARM, Context.MODE_PRIVATE)
-        val farmList = SharedPrefUtil.getFarms(sharedPref)
 
-        val farmWithSprayDates: List<Farm> = farmList.filter { it.sprayDate != null }
+        val farmWithSprayDates: List<Farm> = farms.filter { it.sprayDate != null }
 
         calendarView.post {
             calendarView.addDecorator(TodayDecorator())
@@ -222,29 +239,78 @@ class LogsFragment : Fragment() {
     }
 
     private fun setupFarms() {
-        val sharedPref = requireContext().getSharedPreferences(Constant.SHARED_PREF_FARM, Context.MODE_PRIVATE)
-        val gson = Gson()
-        val type = object : TypeToken<MutableList<Farm>>() {}.type
-        val farmList: MutableList<Farm> =
-            gson.fromJson(sharedPref.getString(Constant.SHARED_PREF_FARM, null), type) ?: mutableListOf()
 
-        recyclerView.layoutManager = GridLayoutManager(requireContext(), 1)
-        adapter = FarmAdapter(
-            farmList,
-            onClick = { farm ->
-                // when farm is clicked -> open details
-                val intent = Intent(requireActivity(), FarmActivity::class.java)
-                intent.putExtra("farm", farm)
-                activityLauncher.launch(intent)
-            },
-            onDelete = { farmToDelete ->
-                // Only delete, NO dialog here
-                farmList.remove(farmToDelete)
-                sharedPref.edit().putString(Constant.SHARED_PREF_FARM, gson.toJson(farmList)).apply()
-                adapter.notifyDataSetChanged()
-            }
-        )
-        recyclerView.adapter = adapter
+        lifecycleScope.launch {
+            farms = getFirebaseFarms(userId!!)
+
+            addCalendarMarks(farms)
+            checkHarvestNotifications(farms)
+
+            recyclerView.layoutManager = GridLayoutManager(requireContext(), 1)
+            adapter = FarmAdapter(
+                farms,
+                onClick = { farm ->
+                    val intent = Intent(requireActivity(), FarmActivity::class.java)
+                    intent.putExtra("farm", farm)
+                    activityLauncher.launch(intent)
+                },
+                onDelete = { farmToDelete ->
+                    farms.remove(farmToDelete)
+
+                    val farmDoc = firestore.collection("users")
+                        .document(userId!!)
+                        .collection("farms")
+                        .document(farmToDelete.id)
+
+                    lifecycleScope.launch {
+                        farmDoc.delete().await()
+                    }
+
+                    adapter.notifyDataSetChanged()
+                },
+                onRename = { farm ->
+                    showRenameDialog(farm)
+                }
+            )
+            recyclerView.adapter = adapter
+        }
+    }
+
+    private suspend fun getFirebaseFarms(userId: String): MutableList<Farm> = coroutineScope {
+        try {
+            showLoading()
+            // Fetch all farms
+            val farmSnapshot = firestore.collection("users")
+                .document(userId)
+                .collection("farms")
+                .get()
+                .await()
+
+            // Fetch trees for each farm in parallel
+            val farms = farmSnapshot.documents.map { farmDoc ->
+                async {
+                    val farm = farmDoc.toObject(Farm::class.java) ?: return@async null
+
+                    // Fetch trees subcollection
+                    val treesSnapshot = firestore.collection("users")
+                        .document(userId)
+                        .collection("farms")
+                        .document(farm.id)
+                        .collection("trees")
+                        .get()
+                        .await()
+
+                    farm.trees = treesSnapshot.toObjects(Tree::class.java).toMutableList()
+                    farm
+                }
+            }.awaitAll().filterNotNull()
+            hideLoading()
+            farms.toMutableList()
+
+        } catch (e: Exception) {
+            e.printStackTrace()
+            mutableListOf()
+        }
     }
 
 
@@ -366,17 +432,11 @@ class LogsFragment : Fragment() {
 
         vibrator?.vibrate(android.os.VibrationEffect.createOneShot(300, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
     }
-    private fun checkHarvestNotifications() {
-        val sharedPref = requireContext().getSharedPreferences(Constant.SHARED_PREF_FARM, Context.MODE_PRIVATE)
-        val gson = Gson()
-        val type = object : TypeToken<MutableList<Farm>>() {}.type
-        val farmList: MutableList<Farm> =
-            gson.fromJson(sharedPref.getString(Constant.SHARED_PREF_FARM, null), type) ?: mutableListOf()
-
+    private fun checkHarvestNotifications(farms : List<Farm>) {
         val today = Calendar.getInstance().time
         val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
 
-        for (farm in farmList) {
+        for (farm in farms) {
             farm.sprayDate?.let { sprayDateStr ->
                 try {
                     val sprayDate = sdf.parse(sprayDateStr)
@@ -415,15 +475,15 @@ class LogsFragment : Fragment() {
         lifecycleScope.launch {
             val name = requireContext().showAddFarmDialog()
             if (name != null && name.isNotBlank()) {
-                val sharedPref = requireContext().getSharedPreferences(Constant.SHARED_PREF_FARM, Context.MODE_PRIVATE)
-                val gson = Gson()
-                val type = object : TypeToken<MutableList<Farm>>() {}.type
-                val farmList: MutableList<Farm> =
-                    gson.fromJson(sharedPref.getString(Constant.SHARED_PREF_FARM, null), type) ?: mutableListOf()
-
                 val newFarm = Farm(name = name, id = UUID.randomUUID().toString(), sprayDate = null, trees = mutableListOf())
-                farmList.add(newFarm)
-                sharedPref.edit().putString(Constant.SHARED_PREF_FARM, gson.toJson(farmList)).apply()
+
+                firestore.collection(Constant.FIREBASE_USERS)
+                    .document(userId!!)
+                    .collection(Constant.FIREBASE_FARMS)
+                    .document(newFarm.id)
+                    .set(newFarm)
+                    .await()
+
                 setupFarms()
                 Toast.makeText(requireContext(), "Farm \"$name\" added", Toast.LENGTH_SHORT).show()
             }
@@ -471,6 +531,54 @@ class LogsFragment : Fragment() {
         cont.invokeOnCancellation { dialog.dismiss() }
     }
 
+    // ---------------------- RENAME DIALOG ----------------------
+    private fun showRenameDialog(farm: Farm) {
+        val input = EditText(context).apply {
+            hint = "Enter new farm name"
+            setHintTextColor(Color.parseColor("#808080"))
+            setTextColor(Color.BLACK)
+            setText(farm.name)
+            setPadding(60, 50, 60, 50)
+        }
+
+        val dialog = MaterialAlertDialogBuilder(requireContext(), R.style.MangoDialogStyle)
+            .setTitle("✏️ Rename Farm")
+            .setMessage("Give your farm a new name:")
+            .setView(input)
+            .setPositiveButton("Save") { d, _ ->
+                val newName = input.text.toString().trim()
+                if (newName.isNotEmpty()) {
+                    farm.name = newName
+                    lifecycleScope.launch {
+                        firestore.collection("users")
+                            .document(userId!!)
+                            .collection("farms")
+                            .document(farm.id)
+                            .update("name", newName)
+                            .await()
+                    }
+
+                    adapter.notifyDataSetChanged()
+
+                    Toast.makeText(context, "Farm renamed to \"$newName\"", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(context, "Name cannot be empty.", Toast.LENGTH_SHORT).show()
+                }
+                d.dismiss()
+            }
+            .setNegativeButton("Cancel") { d, _ -> d.dismiss() }
+            .create()
+
+        dialog.show()
+
+        dialog.apply {
+            findViewById<TextView>(androidx.appcompat.R.id.alertTitle)?.setTextColor(Color.BLACK)
+            findViewById<TextView>(android.R.id.message)?.setTextColor(Color.BLACK)
+            getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(Color.BLACK)
+            getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(Color.BLACK)
+        }
+    }
+
     private fun logoutUser() {
         FirebaseAuth.getInstance().signOut()
         val intent = Intent(requireActivity(), LoginActivity::class.java)
@@ -488,5 +596,15 @@ class LogsFragment : Fragment() {
         } catch (e: Exception) {
             e.printStackTrace(); null
         }
+    }
+    
+    private fun showLoading()
+    {
+        loadingView.visibility = View.VISIBLE
+    }
+
+    private fun hideLoading()
+    {
+        loadingView.visibility = View.GONE
     }
 }

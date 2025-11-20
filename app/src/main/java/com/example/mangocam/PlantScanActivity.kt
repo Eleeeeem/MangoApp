@@ -60,9 +60,6 @@ class PlantScanActivity : AppCompatActivity(), OnDiseaseDataListener {
         // Attach image URI as string
         plantData?.imageUri = plantImageUri?.toString()
 
-        // Save to SharedPreferences for this tree
-        saveToHistory(plantData!!, treeId)
-
         // Send back to previous activity if needed
         val intent = Intent()
         intent.putExtra("plantDetail", plantData)
@@ -102,26 +99,5 @@ class PlantScanActivity : AppCompatActivity(), OnDiseaseDataListener {
                 }
             }
         }
-    }
-
-
-
-    /**
-     * Save history PER tree
-     */
-    private fun saveToHistory(data: PlantResponse, treeId: String) {
-        val sharedPref = getSharedPreferences("TreeHistory", Context.MODE_PRIVATE)
-        val key = "history_$treeId" // unique key per tree
-
-        val json = sharedPref.getString(key, "[]")
-        val type = object : TypeToken<MutableList<PlantResponse>>() {}.type
-        val list: MutableList<PlantResponse> = gson.fromJson(json, type)
-
-        // Add newest first
-        list.add(0, data)
-
-        sharedPref.edit()
-            .putString(key, gson.toJson(list))
-            .apply()
     }
 }

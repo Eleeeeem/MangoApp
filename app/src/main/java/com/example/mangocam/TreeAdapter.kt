@@ -26,7 +26,8 @@ class TreeAdapter(
     private val trees: MutableList<Tree>,
     private val onDiagnoseClick: (Tree) -> Unit,
     private val onCheckDetailClick: (Tree) -> Unit,
-    private val onDeleteClick: (Tree) -> Unit
+    private val onDeleteClick: (Tree) -> Unit,
+    private val onRenameClick: (Tree) -> Unit
 ) : RecyclerView.Adapter<TreeAdapter.TreeViewHolder>() {
 
     private val gson = Gson()
@@ -54,7 +55,7 @@ class TreeAdapter(
 
             // ✏️ Rename
             renameButton.setOnClickListener {
-                showRenameDialog(itemView.context, tree, adapterPosition)
+                onRenameClick(tree)
             }
         }
     }
@@ -75,55 +76,5 @@ class TreeAdapter(
         val start = trees.size
         trees.addAll(newTrees)
         notifyItemRangeInserted(start, newTrees.size)
-    }
-
-    private fun showRenameDialog(context: Context, tree: Tree, position: Int) {
-        val input = EditText(context).apply {
-            inputType = InputType.TYPE_CLASS_TEXT
-            setText(tree.name)
-            setTextColor(Color.BLACK)
-            setHintTextColor(Color.GRAY)   // optional, for hint
-        }
-
-        val dialog = MaterialAlertDialogBuilder(context, R.style.MangoDialogStyle)
-            .setTitle("✏️ Rename Tree")
-            .setView(input)
-            .setPositiveButton("Save") { d, _ ->
-                val newName = input.text.toString().trim()
-                if (newName.isNotEmpty()) {
-                    tree.name = newName
-                    notifyItemChanged(position)
-                    updateTreeNameInStorage(context, tree)
-                    Toast.makeText(context, "Renamed to \"$newName\"", Toast.LENGTH_SHORT).show()
-                }
-                d.dismiss()
-            }
-            .setNegativeButton("Cancel") { d, _ -> d.dismiss() }
-            .create()
-
-        dialog.show()
-
-        // ✅ Apply black text colors for title and buttons
-        dialog.apply {
-            findViewById<TextView>(androidx.appcompat.R.id.alertTitle)?.setTextColor(Color.BLACK)
-            getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(Color.BLACK)
-            getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(Color.BLACK)
-        }
-    }
-
-
-    private fun updateTreeNameInStorage(context: Context, updatedTree: Tree) {
-        val sharedPref = context.getSharedPreferences(Constant.SHARED_PREF_FARM, Context.MODE_PRIVATE)
-        val type = object : TypeToken<MutableList<Farm>>() {}.type
-        val farmList: MutableList<Farm> =
-            gson.fromJson(sharedPref.getString(Constant.SHARED_PREF_FARM, null), type) ?: mutableListOf()
-        for (farm in farmList) {
-            val targetTree = farm.trees.find { it.id == updatedTree.id }
-            if (targetTree != null) {
-                targetTree.name = updatedTree.name
-                break
-            }
-        }
-        sharedPref.edit().putString(Constant.SHARED_PREF_FARM, gson.toJson(farmList)).apply()
     }
 }
